@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Control de Horas con Firebase</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;padding:20px}
+#loginBox{max-width:400px;margin:80px auto;background:white;padding:30px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
+input{width:90%;padding:8px;margin:8px}
+button{padding:8px 15px;border:none;background:#2c3e50;color:white;border-radius:5px;cursor:pointer}
+button:hover{background:#34495e}
+.hidden{display:none}
+table{width:100%;border-collapse:collapse;margin-top:20px;background:white}
+th,td{padding:10px;border:1px solid #ddd;text-align:center}
+th{background:#2c3e50;color:white}
+.dashboard{display:flex;gap:20px;margin:20px 0}
+.card{flex:1;background:white;padding:20px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
+.resumen{background:white;padding:20px;border-radius:10px;margin-top:20px}
+</style>
+</head>
+<body>
+
+<div id="loginBox">
+<h2>Bienvenido al Cálculo de tus Horas Laborales</h2>
+<input type="email" id="loginUser" placeholder="Correo electrónico">
+<input type="password" id="loginPass" placeholder="Contraseña">
+<button onclick="login()">Ingresar</button>
+<button onclick="registrar()">Registrar</button>
+<p id="loginMensaje"></p>
+</div>
+
+<div id="app" class="hidden">
+<h2 id="saludo"></h2>
+<button onclick="logout()">Cerrar Sesión</button>
+
+<h3>Ingreso de Horas</h3>
+
+Entrada <input type="time" id="entrada">
+Salida Almuerzo <input type="time" id="salidaAlm">
+Entrada Almuerzo <input type="time" id="entradaAlm">
+Salida <input type="time" id="salida">
+
+<button onclick="guardarDia()">Guardar Día</button>
+<button onclick="exportarExcel()">Excel</button>
+<button onclick="exportarPDF()">PDF</button>
+
+<table>
+<thead>
+<tr>
+<th>Fecha</th>
+<th>Horas Totales</th>
+<th>Normales</th>
+<th>Extras</th>
+</tr>
+</thead>
+<tbody id="tablaBody"></tbody>
+</table>
+
+<h3>Dashboard Mensual</h3>
+
+<div class="dashboard">
+<div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
+<div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
+<div class="card"><p>Total Mes</p><h3 id="mesTotal">$0.00</h3></div>
+</div>
+
+<canvas id="graficaMes" height="100"></canvas>
+
+<div class="resumen">
+<h3>Resumen General del Mes</h3>
+<p>Total Horas Normales: <span id="totalNormales">0.00</span></p>
+<p>Total Horas Extras: <span id="totalExtras">0.00</span></p>
+<p>Total Bruto: $<span id="bruto">0.00</span></p>
+<p>Seguro Social (9.75%): $<span id="ss">0.00</span></p>
+<p>Seguro Educativo (1.25%): $<span id="se">0.00</span></p>
+<p><strong>Total Neto: $<span id="neto">0.00</span></strong></p>
+</div>
+
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA_c-ZFgW3punFLVpu1SYHYLaJAeQ4Uw7s",
+  authDomain: "control-de-horas-66200.firebaseapp.com",
+  projectId: "control-de-horas-66200",
+  storageBucket: "control-de-horas-66200.firebasestorage.app",
+  messagingSenderId: "554905911145",
+  appId: "1:554905911145:web:5d6664ecf3f368256b87f8"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+let usuarioActivo=null;
+let datosUsuario=[];
+let pagoHora=3.02;
+let grafica;
+
+onAuthStateChanged(auth, async (user)=>{
+if(user){
+usuarioActivo=user;
+mostrarApp();
+await cargarDatos();
+}else{
+document.getElementById("loginBox").classList.remove("hidden");
+document.getElementById("app").classList.add("hidden");
+}
+});
+
+window.login=async function(){
+let email=document.getElementById("loginUser").value;
+let pass=document.getElementById("loginPass").value;
+try{
+await signInWithEmailAndPassword(auth,email,pass);
+}catch(e){document.getElementById("loginMensaje").innerText=e.message;}
+}
+
+window.registrar=async function(){
+let email=document.getElementById("loginUser").value;
+let pass=document.getElementById("loginPass").value;
+try{
+await createUserWithEmailAndPassword(auth,email,pass);
+}catch(e){alert(e.message);}
+}
+
+window.logout=async function(){await signOut(auth)}
+
+function mostrarApp(){
+document.getElementById("loginBox").classList.add("hidden");
+document.getElementById("app").classList.remove("hidden");
+document.getElementById("saludo").innerText="Bienvenido "+usuarioActivo.email;
+}
+
+window.guardarDia=async function(){
+
+let entrada=document.getElementById("entrada").value;
+let salidaAlm=document.getElementById("salidaAlm").value;
+let entradaAlm=document.getElementById("entradaAlm").value;
+let salida=document.getElementById("salida").value;
+
+if(!entrada||!salida||!salidaAlm||!entradaAlm)
+return alert("Complete todas las horas");
+
+let hoy=new Date();
+let fecha=hoy.toLocaleDateString('es-ES');
+
+let inicio=new Date(`2024-01-01T${entrada}`);
+let fin=new Date(`2024-01-01T${salida}`);
+let alm1=new Date(`2024-01-01T${salidaAlm}`);
+let alm2=new Date(`2024-01-01T${entradaAlm}`);
+
+let horas=(fin-inicio)/3600000;
+let almuerzo=(alm2-alm1)/3600000;
+let trabajadas=horas-almuerzo;
+
+let normales=Math.min(trabajadas,8);
+let extras=trabajadas>8?trabajadas-8:0;
+
+await addDoc(collection(db,"horas",usuarioActivo.uid,"registros"),{
+fecha,trabajadas,normales,extras
+});
+
+await cargarDatos();
+}
+
+async function cargarDatos(){
+datosUsuario=[];
+document.getElementById("tablaBody").innerHTML="";
+
+const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"registros"));
+querySnapshot.forEach(doc=>{
+datosUsuario.push(doc.data());
+});
+
+datosUsuario.forEach(d=>agregarFila(d));
+dashboardMensual();
+}
+
+function agregarFila(d){
+document.getElementById("tablaBody").innerHTML+=`
+<tr>
+<td>${d.fecha}</td>
+<td>${d.trabajadas.toFixed(2)}</td>
+<td>${d.normales.toFixed(2)}</td>
+<td>${d.extras.toFixed(2)}</td>
+</tr>`;
+}
+
+function dashboardMensual(){
+
+let hoy=new Date();
+let mes=hoy.getMonth();
+let anio=hoy.getFullYear();
+
+let normales=0,extras=0;
+
+datosUsuario.forEach(d=>{
+let p=d.fecha.split("/");
+let fecha=new Date(p[2],p[1]-1,p[0]);
+if(fecha.getMonth()===mes && fecha.getFullYear()===anio){
+normales+=d.normales;
+extras+=d.extras;
+}
+});
+
+let bruto=(normales+extras)*pagoHora;
+let ss=bruto*0.0975;
+let se=bruto*0.0125;
+let neto=bruto-ss-se;
+
+document.getElementById("mesNormales").innerText=normales.toFixed(2);
+document.getElementById("mesExtras").innerText=extras.toFixed(2);
+document.getElementById("mesTotal").innerText="$"+bruto.toFixed(2);
+
+document.getElementById("totalNormales").innerText=normales.toFixed(2);
+document.getElementById("totalExtras").innerText=extras.toFixed(2);
+document.getElementById("bruto").innerText=bruto.toFixed(2);
+document.getElementById("ss").innerText=ss.toFixed(2);
+document.getElementById("se").innerText=se.toFixed(2);
+document.getElementById("neto").innerText=neto.toFixed(2);
+
+if(grafica)grafica.destroy();
+
+let ctx=document.getElementById("graficaMes").getContext("2d");
+grafica=new Chart(ctx,{
+type:"bar",
+data:{labels:["Normales","Extras"],
+datasets:[{data:[normales,extras]}]}
+});
+}
+
+window.exportarExcel=function(){
+let wb=XLSX.utils.book_new();
+let ws=XLSX.utils.json_to_sheet(datosUsuario);
+XLSX.utils.book_append_sheet(wb,ws,"Horas");
+XLSX.writeFile(wb,"horas.xlsx");
+}
+
+window.exportarPDF=async function(){
+const { jsPDF }=window.jspdf;
+let doc=new jsPDF();
+doc.text("Horas - "+usuarioActivo.email,10,10);
+let y=20;
+datosUsuario.forEach(d=>{
+doc.text(`${d.fecha} | ${d.trabajadas}h | N:${d.normales} | E:${d.extras}`,10,y);
+y+=10;
+});
+doc.save("horas.pdf");
+}
+
+</script>
+</body>
+</html>
