@@ -62,6 +62,8 @@ Salida <input type="time" id="salida">
 
 <h3>Dashboard Mensual</h3>
 
+<select id="selectorMes" onchange="cambiarMes()"></select>
+
 <div class="dashboard">
 <div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
 <div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
@@ -106,11 +108,19 @@ let datosUsuario=[];
 let pagoHora=3.02;
 let grafica;
 let editandoId=null;
+let mesSeleccionado=null;
+
+function obtenerMesActual(){
+const hoy=new Date();
+return `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+}
 
 onAuthStateChanged(auth, async (user)=>{
 if(user){
 usuarioActivo=user;
+mesSeleccionado=obtenerMesActual();
 mostrarApp();
+await cargarMeses();
 await cargarDatos();
 }else{
 document.getElementById("loginBox").classList.remove("hidden");
@@ -119,96 +129,90 @@ document.getElementById("app").classList.add("hidden");
 });
 
 window.login=async function(){
-let email=document.getElementById("loginUser").value;
-let pass=document.getElementById("loginPass").value;
+let email=loginUser.value;
+let pass=loginPass.value;
 try{ await signInWithEmailAndPassword(auth,email,pass); }
-catch(e){ document.getElementById("loginMensaje").innerText=e.message; }
+catch(e){ loginMensaje.innerText=e.message; }
 }
 
 window.registrar=async function(){
-let email=document.getElementById("loginUser").value;
-let pass=document.getElementById("loginPass").value;
+let email=loginUser.value;
+let pass=loginPass.value;
 try{ await createUserWithEmailAndPassword(auth,email,pass); }
 catch(e){ alert(e.message); }
 }
 
-window.logout=async function(){ await signOut(auth); }
+window.logout=async ()=> await signOut(auth);
 
 function mostrarApp(){
-document.getElementById("loginBox").classList.add("hidden");
-document.getElementById("app").classList.remove("hidden");
-document.getElementById("saludo").innerText="Bienvenido "+usuarioActivo.email;
+loginBox.classList.add("hidden");
+app.classList.remove("hidden");
+saludo.innerText="Bienvenido "+usuarioActivo.email;
+}
+
+async function cargarMeses(){
+let snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses"));
+let selector=selectorMes;
+selector.innerHTML="";
+let meses=[];
+snap.forEach(d=>meses.push(d.id));
+meses.sort().reverse();
+if(!meses.includes(obtenerMesActual())) meses.unshift(obtenerMesActual());
+meses.forEach(m=>selector.innerHTML+=`<option value="${m}">${m}</option>`);
+selector.value=mesSeleccionado;
+}
+
+window.cambiarMes=async function(){
+mesSeleccionado=selectorMes.value;
+await cargarDatos();
 }
 
 window.guardarDia=async function(){
 
-let entrada=document.getElementById("entrada").value;
-let salidaAlm=document.getElementById("salidaAlm").value;
-let entradaAlm=document.getElementById("entradaAlm").value;
-let salida=document.getElementById("salida").value;
+let entrada=entrada.value;
+let salidaAlm=salidaAlm.value;
+let entradaAlmVal=entradaAlm.value;
+let salida=salida.value;
 
-if(!entrada||!salida||!salidaAlm||!entradaAlm)
-return alert("Complete todas las horas");
+if(!entrada||!salida||!salidaAlm||!entradaAlmVal) return alert("Complete todas las horas");
 
-let hoy=new Date();
-let fecha=hoy.toLocaleDateString('es-ES');
+let fecha=new Date().toLocaleDateString('es-ES');
 
 let inicio=new Date(`2024-01-01T${entrada}`);
 let fin=new Date(`2024-01-01T${salida}`);
 let alm1=new Date(`2024-01-01T${salidaAlm}`);
-let alm2=new Date(`2024-01-01T${entradaAlm}`);
+let alm2=new Date(`2024-01-01T${entradaAlmVal}`);
 
-let horas=(fin-inicio)/3600000;
-let almuerzo=(alm2-alm1)/3600000;
-let trabajadas=horas-almuerzo;
-
+let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
 let normales=Math.min(trabajadas,8);
 let extras=trabajadas>8?trabajadas-8:0;
 
-let data={
-fecha,
-entrada,
-salidaAlm,
-entradaAlm,
-salida,
-trabajadas,
-normales,
-extras
-};
+let data={fecha,entrada,salidaAlm,entradaAlm:entradaAlmVal,salida,trabajadas,normales,extras};
 
 if(editandoId){
-await updateDoc(doc(db,"horas",usuarioActivo.uid,"registros",editandoId),data);
+await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
 editandoId=null;
 }else{
-await addDoc(collection(db,"horas",usuarioActivo.uid,"registros"),data);
+await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
 }
 
-document.getElementById("entrada").value="";
-document.getElementById("salidaAlm").value="";
-document.getElementById("entradaAlm").value="";
-document.getElementById("salida").value="";
-
+await cargarMeses();
 await cargarDatos();
+
+document.querySelectorAll("input[type=time]").forEach(i=>i.value="");
 }
 
 async function cargarDatos(){
 datosUsuario=[];
-document.getElementById("tablaBody").innerHTML="";
-
-const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"registros"));
-
-querySnapshot.forEach(docSnap=>{
-datosUsuario.push({id:docSnap.id,...docSnap.data()});
-});
-
-datosUsuario.sort((a,b)=> new Date(b.fecha.split("/").reverse()) - new Date(a.fecha.split("/").reverse()));
-
+tablaBody.innerHTML="";
+let snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
+snap.forEach(d=>datosUsuario.push({id:d.id,...d.data()}));
 datosUsuario.forEach(d=>agregarFila(d));
 dashboardMensual();
 }
 
 function agregarFila(d){
-document.getElementById("tablaBody").innerHTML+=`
+tablaBody.innerHTML+=`
 <tr>
 <td>${d.fecha}</td>
 <td>${d.trabajadas.toFixed(2)}</td>
@@ -222,61 +226,42 @@ document.getElementById("tablaBody").innerHTML+=`
 }
 
 window.editarDia=function(id){
-let registro=datosUsuario.find(d=>d.id===id);
+let r=datosUsuario.find(d=>d.id===id);
 editandoId=id;
-document.getElementById("entrada").value=registro.entrada;
-document.getElementById("salidaAlm").value=registro.salidaAlm;
-document.getElementById("entradaAlm").value=registro.entradaAlm;
-document.getElementById("salida").value=registro.salida;
-window.scrollTo({top:0,behavior:"smooth"});
+entrada.value=r.entrada;
+salidaAlm.value=r.salidaAlm;
+entradaAlm.value=r.entradaAlm;
+salida.value=r.salida;
 }
 
 window.eliminarDia=async function(id){
 if(!confirm("¿Eliminar este registro?")) return;
-await deleteDoc(doc(db,"horas",usuarioActivo.uid,"registros",id));
+await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
 await cargarDatos();
 }
 
 function dashboardMensual(){
-
-let hoy=new Date();
-let mes=hoy.getMonth();
-let anio=hoy.getFullYear();
-
 let normales=0,extras=0;
-
-datosUsuario.forEach(d=>{
-let p=d.fecha.split("/");
-let fecha=new Date(p[2],p[1]-1,p[0]);
-if(fecha.getMonth()===mes && fecha.getFullYear()===anio){
-normales+=d.normales;
-extras+=d.extras;
-}
-});
-
+datosUsuario.forEach(d=>{normales+=d.normales;extras+=d.extras;});
 let bruto=(normales+extras)*pagoHora;
 let ss=bruto*0.0975;
 let se=bruto*0.0125;
 let neto=bruto-ss-se;
 
-document.getElementById("mesNormales").innerText=normales.toFixed(2);
-document.getElementById("mesExtras").innerText=extras.toFixed(2);
-document.getElementById("mesTotal").innerText="$"+bruto.toFixed(2);
-
-document.getElementById("totalNormales").innerText=normales.toFixed(2);
-document.getElementById("totalExtras").innerText=extras.toFixed(2);
-document.getElementById("bruto").innerText=bruto.toFixed(2);
-document.getElementById("ss").innerText=ss.toFixed(2);
-document.getElementById("se").innerText=se.toFixed(2);
-document.getElementById("neto").innerText=neto.toFixed(2);
+mesNormales.innerText=normales.toFixed(2);
+mesExtras.innerText=extras.toFixed(2);
+mesTotal.innerText="$"+bruto.toFixed(2);
+totalNormales.innerText=normales.toFixed(2);
+totalExtras.innerText=extras.toFixed(2);
+bruto.innerText=bruto.toFixed(2);
+ss.innerText=ss.toFixed(2);
+se.innerText=se.toFixed(2);
+neto.innerText=neto.toFixed(2);
 
 if(grafica)grafica.destroy();
-
-let ctx=document.getElementById("graficaMes").getContext("2d");
-grafica=new Chart(ctx,{
+grafica=new Chart(graficaMes,{
 type:"bar",
-data:{labels:["Normales","Extras"],
-datasets:[{data:[normales,extras]}]}
+data:{labels:["Normales","Extras"],datasets:[{data:[normales,extras]}]}
 });
 }
 
