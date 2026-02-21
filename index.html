@@ -2,192 +2,183 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Control de Horas Pro</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<title>Cálculo de Horas Laborales</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{font-family:Arial;background:#f4f6f9;padding:20px}
-#loginBox{max-width:400px;margin:80px auto;background:white;padding:30px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
-input{width:90%;padding:8px;margin:8px}
-button{padding:6px 12px;border:none;background:#2c3e50;color:white;border-radius:5px;cursor:pointer}
-button:hover{background:#34495e}
+body{font-family:Arial;margin:0;background:#f4f6f9}
+.container{max-width:1100px;margin:auto;padding:20px}
+.card{background:white;padding:20px;border-radius:10px;margin-bottom:20px;box-shadow:0 4px 10px rgba(0,0,0,0.05)}
+input,button,select{padding:8px;margin:5px}
+button{cursor:pointer;border:none;border-radius:6px;background:#2563eb;color:white}
+button:hover{opacity:.9}
+table{width:100%;border-collapse:collapse;margin-top:15px}
+th,td{border:1px solid #ddd;padding:8px;text-align:center}
+th{background:#2563eb;color:white}
+.resumen{background:#f1f5f9;padding:15px;border-radius:10px}
 .hidden{display:none}
-table{width:100%;border-collapse:collapse;margin-top:20px;background:white}
-th,td{padding:10px;border:1px solid #ddd;text-align:center}
-th{background:#2c3e50;color:white}
-.dashboard{display:flex;gap:20px;margin:20px 0}
-.card{flex:1;background:white;padding:20px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
-.resumen{background:white;padding:20px;border-radius:10px;margin-top:20px}
+.topbar{display:flex;justify-content:space-between;align-items:center}
 </style>
 </head>
 <body>
 
-<div id="loginBox">
-<h2>Bienvenido al Cálculo de tus Horas Laborales</h2>
-<input type="email" id="loginUser" placeholder="Correo electrónico">
-<input type="password" id="loginPass" placeholder="Contraseña">
+<div id="welcomeScreen" class="container card">
+<h2>Bienvenido al Cálculo de tus horas laborales</h2>
+<button onclick="mostrarLogin()">Iniciar</button>
+</div>
+
+<div id="loginScreen" class="container card hidden">
+<h3>Login</h3>
+<input type="email" id="email" placeholder="Email"><br>
+<input type="password" id="password" placeholder="Contraseña"><br>
 <button onclick="login()">Ingresar</button>
-<button onclick="registrar()">Registrar</button>
-<p id="loginMensaje"></p>
+<button onclick="register()">Registrar</button>
 </div>
 
 <div id="app" class="hidden">
-<h2 id="saludo"></h2>
-<button onclick="logout()">Cerrar Sesión</button>
+<div class="container">
 
+<div class="topbar">
+<h2>Panel de Horas</h2>
+<button onclick="logout()">Cerrar sesión</button>
+</div>
+
+<div class="card">
+<label>Seleccionar Mes:</label>
+<input type="month" id="mesSelector">
+<button onclick="cambiarMes()">Cambiar</button>
+</div>
+
+<div class="card">
 <h3>Ingreso de Horas</h3>
-
-Entrada <input type="time" id="entrada">
-Salida Almuerzo <input type="time" id="salidaAlm">
-Entrada Almuerzo <input type="time" id="entradaAlm">
-Salida <input type="time" id="salida">
-
+<input type="time" id="entrada">
+<input type="time" id="salidaAlm">
+<input type="time" id="entradaAlm">
+<input type="time" id="salida">
 <button onclick="guardarDia()">Guardar Día</button>
+</div>
 
+<div class="card">
+<h3>Registros</h3>
 <table>
 <thead>
 <tr>
 <th>Fecha</th>
-<th>Horas Totales</th>
+<th>Entrada</th>
+<th>Salida Alm</th>
+<th>Entrada Alm</th>
+<th>Salida</th>
 <th>Normales</th>
 <th>Extras</th>
 <th>Acciones</th>
 </tr>
 </thead>
-<tbody id="tablaBody"></tbody>
+<tbody id="tabla"></tbody>
 </table>
-
-<h3>Dashboard Mensual</h3>
-
-<select id="selectorMes" onchange="cambiarMes()"></select>
-
-<div class="dashboard">
-<div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
-<div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
-<div class="card"><p>Total Mes</p><h3 id="mesTotal">$0.00</h3></div>
 </div>
 
-<canvas id="graficaMes" height="100"></canvas>
-
-<div class="resumen">
-<h3>Resumen General del Mes</h3>
+<div class="card resumen">
+<h3>Resumen General</h3>
 <p>Total Horas Normales: <span id="totalNormales">0.00</span></p>
 <p>Total Horas Extras: <span id="totalExtras">0.00</span></p>
 <p>Total Bruto: $<span id="bruto">0.00</span></p>
 <p>Seguro Social (9.75%): $<span id="ss">0.00</span></p>
 <p>Seguro Educativo (1.25%): $<span id="se">0.00</span></p>
-<p><strong>Total Neto: $<span id="neto">0.00</span></strong></p>
+<p>Total Neto: $<span id="neto">0.00</span></p>
 </div>
 
+</div>
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA_c-ZFgW3punFLVpu1SYHYLaJAeQ4Uw7s",
-  authDomain: "control-de-horas-66200.firebaseapp.com",
-  projectId: "control-de-horas-66200",
-  storageBucket: "control-de-horas-66200.firebasestorage.app",
-  messagingSenderId: "554905911145",
-  appId: "1:554905911145:web:5d6664ecf3f368256b87f8"
-}
+apiKey: "AIzaSyA_c-ZFgW3punFLVpu1SYHYLaJAeQ4Uw7s",
+authDomain: "control-de-horas-66200.firebaseapp.com",
+projectId: "control-de-horas-66200",
+storageBucket: "control-de-horas-66200.firebasestorage.app",
+messagingSenderId: "554905911145",
+appId: "1:554905911145:web:5d6664ecf3f368256b87f8"
+};
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+const appFirebase = initializeApp(firebaseConfig);
+const auth = getAuth(appFirebase);
+const db = getFirestore(appFirebase);
 
 let usuarioActivo=null;
-let datosUsuario=[];
-let pagoHora=3.02;
-let grafica;
+let mesSeleccionado=new Date().toISOString().slice(0,7);
 let editandoId=null;
-let mesSeleccionado=null;
 
-function obtenerMesActual(){
-const hoy=new Date();
-return `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+document.getElementById("mesSelector").value=mesSeleccionado;
+
+function mostrarLogin(){
+document.getElementById("welcomeScreen").classList.add("hidden");
+document.getElementById("loginScreen").classList.remove("hidden");
 }
 
-onAuthStateChanged(auth, async (user)=>{
+function mostrarApp(){
+const welcome=document.getElementById("welcomeScreen");
+const login=document.getElementById("loginScreen");
+const app=document.getElementById("app");
+if(welcome) welcome.classList.add("hidden");
+if(login) login.classList.add("hidden");
+if(app) app.classList.remove("hidden");
+}
+
+window.login=async function(){
+await signInWithEmailAndPassword(auth,email.value,password.value);
+}
+
+window.register=async function(){
+await createUserWithEmailAndPassword(auth,email.value,password.value);
+}
+
+window.logout=async function(){
+await signOut(auth);
+location.reload();
+}
+
+onAuthStateChanged(auth,user=>{
 if(user){
 usuarioActivo=user;
-mesSeleccionado=obtenerMesActual();
 mostrarApp();
-await cargarMeses();
-await cargarDatos();
+cargarDatos();
 }else{
-document.getElementById("loginBox").classList.remove("hidden");
-document.getElementById("app").classList.add("hidden");
+document.getElementById("welcomeScreen").classList.remove("hidden");
 }
 });
 
-window.login=async function(){
-let email=loginUser.value;
-let pass=loginPass.value;
-try{ await signInWithEmailAndPassword(auth,email,pass); }
-catch(e){ loginMensaje.innerText=e.message; }
-}
-
-window.registrar=async function(){
-let email=loginUser.value;
-let pass=loginPass.value;
-try{ await createUserWithEmailAndPassword(auth,email,pass); }
-catch(e){ alert(e.message); }
-}
-
-window.logout=async ()=> await signOut(auth);
-
-function mostrarApp(){
-loginBox.classList.add("hidden");
-app.classList.remove("hidden");
-saludo.innerText="Bienvenido "+usuarioActivo.email;
-}
-
-async function cargarMeses(){
-let snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses"));
-let selector=selectorMes;
-selector.innerHTML="";
-let meses=[];
-snap.forEach(d=>meses.push(d.id));
-meses.sort().reverse();
-if(!meses.includes(obtenerMesActual())) meses.unshift(obtenerMesActual());
-meses.forEach(m=>selector.innerHTML+=`<option value="${m}">${m}</option>`);
-selector.value=mesSeleccionado;
-}
-
-window.cambiarMes=async function(){
-mesSeleccionado=selectorMes.value;
-await cargarDatos();
+window.cambiarMes=function(){
+mesSeleccionado=document.getElementById("mesSelector").value;
+cargarDatos();
 }
 
 window.guardarDia=async function(){
 
-let entrada=entrada.value;
-let salidaAlm=salidaAlm.value;
-let entradaAlmVal=entradaAlm.value;
-let salida=salida.value;
+let entradaVal=document.getElementById("entrada").value;
+let salidaAlmVal=document.getElementById("salidaAlm").value;
+let entradaAlmVal=document.getElementById("entradaAlm").value;
+let salidaVal=document.getElementById("salida").value;
 
-if(!entrada||!salida||!salidaAlm||!entradaAlmVal) return alert("Complete todas las horas");
+if(!entradaVal||!salidaVal||!salidaAlmVal||!entradaAlmVal)
+return alert("Complete todas las horas");
 
 let fecha=new Date().toLocaleDateString('es-ES');
 
-let inicio=new Date(`2024-01-01T${entrada}`);
-let fin=new Date(`2024-01-01T${salida}`);
-let alm1=new Date(`2024-01-01T${salidaAlm}`);
+let inicio=new Date(`2024-01-01T${entradaVal}`);
+let fin=new Date(`2024-01-01T${salidaVal}`);
+let alm1=new Date(`2024-01-01T${salidaAlmVal}`);
 let alm2=new Date(`2024-01-01T${entradaAlmVal}`);
 
 let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
 let normales=Math.min(trabajadas,8);
 let extras=trabajadas>8?trabajadas-8:0;
 
-let data={fecha,entrada,salidaAlm,entradaAlm:entradaAlmVal,salida,trabajadas,normales,extras};
+let data={fecha,entrada:entradaVal,salidaAlm:salidaAlmVal,entradaAlm:entradaAlmVal,salida:salidaVal,normales,extras};
 
 if(editandoId){
 await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
@@ -196,75 +187,67 @@ editandoId=null;
 await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
 }
 
-await cargarMeses();
-await cargarDatos();
-
 document.querySelectorAll("input[type=time]").forEach(i=>i.value="");
+cargarDatos();
 }
 
 async function cargarDatos(){
-datosUsuario=[];
-tablaBody.innerHTML="";
-let snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
-snap.forEach(d=>datosUsuario.push({id:d.id,...d.data()}));
-datosUsuario.forEach(d=>agregarFila(d));
-dashboardMensual();
-}
+const tabla=document.getElementById("tabla");
+tabla.innerHTML="";
+let totalNormales=0,totalExtras=0;
 
-function agregarFila(d){
-tablaBody.innerHTML+=`
+const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
+
+querySnapshot.forEach(docu=>{
+let d=docu.data();
+totalNormales+=d.normales;
+totalExtras+=d.extras;
+
+tabla.innerHTML+=`
 <tr>
 <td>${d.fecha}</td>
-<td>${d.trabajadas.toFixed(2)}</td>
+<td>${d.entrada}</td>
+<td>${d.salidaAlm}</td>
+<td>${d.entradaAlm}</td>
+<td>${d.salida}</td>
 <td>${d.normales.toFixed(2)}</td>
 <td>${d.extras.toFixed(2)}</td>
 <td>
-<button onclick="editarDia('${d.id}')">✏</button>
-<button onclick="eliminarDia('${d.id}')">🗑</button>
+<button onclick="editar('${docu.id}','${d.entrada}','${d.salidaAlm}','${d.entradaAlm}','${d.salida}')">Editar</button>
+<button onclick="eliminar('${docu.id}')">X</button>
 </td>
-</tr>`;
-}
+</tr>
+`;
+});
 
-window.editarDia=function(id){
-let r=datosUsuario.find(d=>d.id===id);
-editandoId=id;
-entrada.value=r.entrada;
-salidaAlm.value=r.salidaAlm;
-entradaAlm.value=r.entradaAlm;
-salida.value=r.salida;
-}
+document.getElementById("totalNormales").innerText=totalNormales.toFixed(2);
+document.getElementById("totalExtras").innerText=totalExtras.toFixed(2);
 
-window.eliminarDia=async function(id){
-if(!confirm("¿Eliminar este registro?")) return;
-await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
-await cargarDatos();
-}
-
-function dashboardMensual(){
-let normales=0,extras=0;
-datosUsuario.forEach(d=>{normales+=d.normales;extras+=d.extras;});
-let bruto=(normales+extras)*pagoHora;
+let bruto=totalNormales*5+totalExtras*7.5;
 let ss=bruto*0.0975;
 let se=bruto*0.0125;
 let neto=bruto-ss-se;
 
-mesNormales.innerText=normales.toFixed(2);
-mesExtras.innerText=extras.toFixed(2);
-mesTotal.innerText="$"+bruto.toFixed(2);
-totalNormales.innerText=normales.toFixed(2);
-totalExtras.innerText=extras.toFixed(2);
-bruto.innerText=bruto.toFixed(2);
-ss.innerText=ss.toFixed(2);
-se.innerText=se.toFixed(2);
-neto.innerText=neto.toFixed(2);
+document.getElementById("bruto").innerText=bruto.toFixed(2);
+document.getElementById("ss").innerText=ss.toFixed(2);
+document.getElementById("se").innerText=se.toFixed(2);
+document.getElementById("neto").innerText=neto.toFixed(2);
+}
 
-if(grafica)grafica.destroy();
-grafica=new Chart(graficaMes,{
-type:"bar",
-data:{labels:["Normales","Extras"],datasets:[{data:[normales,extras]}]}
-});
+window.eliminar=async function(id){
+await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
+cargarDatos();
+}
+
+window.editar=function(id,entrada,salidaAlm,entradaAlm,salida){
+document.getElementById("entrada").value=entrada;
+document.getElementById("salidaAlm").value=salidaAlm;
+document.getElementById("entradaAlm").value=entradaAlm;
+document.getElementById("salida").value=salida;
+editandoId=id;
 }
 
 </script>
+
 </body>
 </html>
