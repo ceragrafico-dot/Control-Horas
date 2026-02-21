@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Control de Horas con Firebase</title>
+<title>Control de Horas Pro</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -12,7 +12,7 @@
 body{font-family:Arial;background:#f4f6f9;padding:20px}
 #loginBox{max-width:400px;margin:80px auto;background:white;padding:30px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
 input{width:90%;padding:8px;margin:8px}
-button{padding:8px 15px;border:none;background:#2c3e50;color:white;border-radius:5px;cursor:pointer}
+button{padding:6px 12px;border:none;background:#2c3e50;color:white;border-radius:5px;cursor:pointer}
 button:hover{background:#34495e}
 .hidden{display:none}
 table{width:100%;border-collapse:collapse;margin-top:20px;background:white}
@@ -46,8 +46,6 @@ Entrada Almuerzo <input type="time" id="entradaAlm">
 Salida <input type="time" id="salida">
 
 <button onclick="guardarDia()">Guardar Día</button>
-<button onclick="exportarExcel()">Excel</button>
-<button onclick="exportarPDF()">PDF</button>
 
 <table>
 <thead>
@@ -56,6 +54,7 @@ Salida <input type="time" id="salida">
 <th>Horas Totales</th>
 <th>Normales</th>
 <th>Extras</th>
+<th>Acciones</th>
 </tr>
 </thead>
 <tbody id="tablaBody"></tbody>
@@ -86,7 +85,7 @@ Salida <input type="time" id="salida">
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -96,7 +95,7 @@ const firebaseConfig = {
   storageBucket: "control-de-horas-66200.firebasestorage.app",
   messagingSenderId: "554905911145",
   appId: "1:554905911145:web:5d6664ecf3f368256b87f8"
-};
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -106,6 +105,7 @@ let usuarioActivo=null;
 let datosUsuario=[];
 let pagoHora=3.02;
 let grafica;
+let editandoId=null;
 
 onAuthStateChanged(auth, async (user)=>{
 if(user){
@@ -121,20 +121,18 @@ document.getElementById("app").classList.add("hidden");
 window.login=async function(){
 let email=document.getElementById("loginUser").value;
 let pass=document.getElementById("loginPass").value;
-try{
-await signInWithEmailAndPassword(auth,email,pass);
-}catch(e){document.getElementById("loginMensaje").innerText=e.message;}
+try{ await signInWithEmailAndPassword(auth,email,pass); }
+catch(e){ document.getElementById("loginMensaje").innerText=e.message; }
 }
 
 window.registrar=async function(){
 let email=document.getElementById("loginUser").value;
 let pass=document.getElementById("loginPass").value;
-try{
-await createUserWithEmailAndPassword(auth,email,pass);
-}catch(e){alert(e.message);}
+try{ await createUserWithEmailAndPassword(auth,email,pass); }
+catch(e){ alert(e.message); }
 }
 
-window.logout=async function(){await signOut(auth)}
+window.logout=async function(){ await signOut(auth); }
 
 function mostrarApp(){
 document.getElementById("loginBox").classList.add("hidden");
@@ -167,9 +165,28 @@ let trabajadas=horas-almuerzo;
 let normales=Math.min(trabajadas,8);
 let extras=trabajadas>8?trabajadas-8:0;
 
-await addDoc(collection(db,"horas",usuarioActivo.uid,"registros"),{
-fecha,trabajadas,normales,extras
-});
+let data={
+fecha,
+entrada,
+salidaAlm,
+entradaAlm,
+salida,
+trabajadas,
+normales,
+extras
+};
+
+if(editandoId){
+await updateDoc(doc(db,"horas",usuarioActivo.uid,"registros",editandoId),data);
+editandoId=null;
+}else{
+await addDoc(collection(db,"horas",usuarioActivo.uid,"registros"),data);
+}
+
+document.getElementById("entrada").value="";
+document.getElementById("salidaAlm").value="";
+document.getElementById("entradaAlm").value="";
+document.getElementById("salida").value="";
 
 await cargarDatos();
 }
@@ -179,9 +196,12 @@ datosUsuario=[];
 document.getElementById("tablaBody").innerHTML="";
 
 const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"registros"));
-querySnapshot.forEach(doc=>{
-datosUsuario.push(doc.data());
+
+querySnapshot.forEach(docSnap=>{
+datosUsuario.push({id:docSnap.id,...docSnap.data()});
 });
+
+datosUsuario.sort((a,b)=> new Date(b.fecha.split("/").reverse()) - new Date(a.fecha.split("/").reverse()));
 
 datosUsuario.forEach(d=>agregarFila(d));
 dashboardMensual();
@@ -194,7 +214,27 @@ document.getElementById("tablaBody").innerHTML+=`
 <td>${d.trabajadas.toFixed(2)}</td>
 <td>${d.normales.toFixed(2)}</td>
 <td>${d.extras.toFixed(2)}</td>
+<td>
+<button onclick="editarDia('${d.id}')">✏</button>
+<button onclick="eliminarDia('${d.id}')">🗑</button>
+</td>
 </tr>`;
+}
+
+window.editarDia=function(id){
+let registro=datosUsuario.find(d=>d.id===id);
+editandoId=id;
+document.getElementById("entrada").value=registro.entrada;
+document.getElementById("salidaAlm").value=registro.salidaAlm;
+document.getElementById("entradaAlm").value=registro.entradaAlm;
+document.getElementById("salida").value=registro.salida;
+window.scrollTo({top:0,behavior:"smooth"});
+}
+
+window.eliminarDia=async function(id){
+if(!confirm("¿Eliminar este registro?")) return;
+await deleteDoc(doc(db,"horas",usuarioActivo.uid,"registros",id));
+await cargarDatos();
 }
 
 function dashboardMensual(){
@@ -238,25 +278,6 @@ type:"bar",
 data:{labels:["Normales","Extras"],
 datasets:[{data:[normales,extras]}]}
 });
-}
-
-window.exportarExcel=function(){
-let wb=XLSX.utils.book_new();
-let ws=XLSX.utils.json_to_sheet(datosUsuario);
-XLSX.utils.book_append_sheet(wb,ws,"Horas");
-XLSX.writeFile(wb,"horas.xlsx");
-}
-
-window.exportarPDF=async function(){
-const { jsPDF }=window.jspdf;
-let doc=new jsPDF();
-doc.text("Horas - "+usuarioActivo.email,10,10);
-let y=20;
-datosUsuario.forEach(d=>{
-doc.text(`${d.fecha} | ${d.trabajadas}h | N:${d.normales} | E:${d.extras}`,10,y);
-y+=10;
-});
-doc.save("horas.pdf");
 }
 
 </script>
