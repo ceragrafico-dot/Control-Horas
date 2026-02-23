@@ -3,55 +3,112 @@
 <head>
 <meta charset="UTF-8">
 <title>Control de Horas Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-body{font-family:Arial;background:#f4f6f9;padding:20px}
-#loginBox{max-width:400px;margin:80px auto;background:white;padding:30px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
-input{width:90%;padding:8px;margin:8px}
-button{padding:6px 12px;border:none;background:#2c3e50;color:white;border-radius:5px;cursor:pointer}
-button:hover{background:#34495e}
+body{
+font-family:'Segoe UI',sans-serif;
+background:#f8fafc;
+margin:0;
+padding:20px;
+}
+h2,h3{margin:10px 0}
+button{
+background:#2563eb;
+color:white;
+padding:8px 14px;
+border-radius:8px;
+border:none;
+cursor:pointer;
+transition:0.2s;
+}
+button:hover{background:#1d4ed8}
+input{padding:6px;border-radius:6px;border:1px solid #ddd;margin:5px}
 .hidden{display:none}
-table{width:100%;border-collapse:collapse;margin-top:20px;background:white}
-th,td{padding:10px;border:1px solid #ddd;text-align:center}
-th{background:#2c3e50;color:white}
-.dashboard{display:flex;gap:20px;margin:20px 0}
-.card{flex:1;background:white;padding:20px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,0.1);text-align:center}
-.resumen{background:white;padding:20px;border-radius:10px;margin-top:20px}
+.card{
+background:white;
+border-radius:14px;
+padding:20px;
+box-shadow:0 10px 25px rgba(0,0,0,0.05);
+margin-bottom:20px;
+}
+.dashboard{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+gap:20px;
+margin:20px 0;
+}
+table{
+width:100%;
+border-collapse:collapse;
+background:white;
+}
+th,td{
+padding:10px;
+border:1px solid #eee;
+text-align:center;
+}
+th{background:#2563eb;color:white}
+#loginBox{
+max-width:400px;
+margin:80px auto;
+text-align:center;
+}
 </style>
 </head>
 <body>
 
-<div id="loginBox">
+<div id="loginBox" class="card">
 <h2>Bienvenido al Cálculo de tus Horas Laborales</h2>
-<input type="email" id="loginUser" placeholder="Correo electrónico">
-<input type="password" id="loginPass" placeholder="Contraseña">
+<input type="email" id="loginUser" placeholder="Correo electrónico"><br>
+<input type="password" id="loginPass" placeholder="Contraseña"><br>
 <button onclick="login()">Ingresar</button>
 <button onclick="registrar()">Registrar</button>
 <p id="loginMensaje"></p>
 </div>
 
 <div id="app" class="hidden">
+
+<div class="card">
 <h2 id="saludo"></h2>
 <button onclick="logout()">Cerrar Sesión</button>
+</div>
 
+<div class="card">
+<h3>Seleccionar Mes</h3>
+<input type="month" id="selectorMes">
+<button onclick="cambiarMes()">Cambiar</button>
+</div>
+
+<div class="card">
+<h3>Configuración</h3>
+Pago por hora:
+<input type="number" id="inputPagoHora" step="0.01">
+<button onclick="guardarConfiguracion()">Guardar Pago</button>
+</div>
+
+<div class="card">
 <h3>Ingreso de Horas</h3>
-
 Entrada <input type="time" id="entrada">
 Salida Almuerzo <input type="time" id="salidaAlm">
 Entrada Almuerzo <input type="time" id="entradaAlm">
 Salida <input type="time" id="salida">
-
+<br><br>
 <button onclick="guardarDia()">Guardar Día</button>
+<button onclick="exportarExcel()">Exportar Excel</button>
+<button onclick="exportarPDF()">Exportar PDF</button>
+</div>
 
+<div class="card">
 <table>
 <thead>
 <tr>
 <th>Fecha</th>
-<th>Horas Totales</th>
+<th>Trabajadas</th>
 <th>Normales</th>
 <th>Extras</th>
 <th>Acciones</th>
@@ -59,8 +116,7 @@ Salida <input type="time" id="salida">
 </thead>
 <tbody id="tablaBody"></tbody>
 </table>
-
-<h3>Dashboard Mensual</h3>
+</div>
 
 <div class="dashboard">
 <div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
@@ -68,9 +124,7 @@ Salida <input type="time" id="salida">
 <div class="card"><p>Total Mes</p><h3 id="mesTotal">$0.00</h3></div>
 </div>
 
-<canvas id="graficaMes" height="100"></canvas>
-
-<div class="resumen">
+<div class="card">
 <h3>Resumen General del Mes</h3>
 <p>Total Horas Normales: <span id="totalNormales">0.00</span></p>
 <p>Total Horas Extras: <span id="totalExtras">0.00</span></p>
@@ -80,12 +134,14 @@ Salida <input type="time" id="salida">
 <p><strong>Total Neto: $<span id="neto">0.00</span></strong></p>
 </div>
 
+<canvas id="graficaMes"></canvas>
+
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -95,22 +151,26 @@ const firebaseConfig = {
   storageBucket: "control-de-horas-66200.firebasestorage.app",
   messagingSenderId: "554905911145",
   appId: "1:554905911145:web:5d6664ecf3f368256b87f8"
-}
+};
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+const appFirebase = initializeApp(firebaseConfig);
+const db = getFirestore(appFirebase);
+const auth = getAuth(appFirebase);
 
 let usuarioActivo=null;
 let datosUsuario=[];
-let pagoHora=3.02;
+let pagoHora=0;
+let mesSeleccionado=new Date().toISOString().slice(0,7);
 let grafica;
 let editandoId=null;
 
-onAuthStateChanged(auth, async (user)=>{
+document.getElementById("selectorMes").value=mesSeleccionado;
+
+onAuthStateChanged(auth, async user=>{
 if(user){
 usuarioActivo=user;
 mostrarApp();
+await cargarConfiguracion();
 await cargarDatos();
 }else{
 document.getElementById("loginBox").classList.remove("hidden");
@@ -118,97 +178,91 @@ document.getElementById("app").classList.add("hidden");
 }
 });
 
-window.login=async function(){
-let email=document.getElementById("loginUser").value;
-let pass=document.getElementById("loginPass").value;
-try{ await signInWithEmailAndPassword(auth,email,pass); }
-catch(e){ document.getElementById("loginMensaje").innerText=e.message; }
+window.login=async()=>{
+try{
+await signInWithEmailAndPassword(auth,loginUser.value,loginPass.value);
+}catch(e){loginMensaje.innerText=e.message}
 }
 
-window.registrar=async function(){
-let email=document.getElementById("loginUser").value;
-let pass=document.getElementById("loginPass").value;
-try{ await createUserWithEmailAndPassword(auth,email,pass); }
-catch(e){ alert(e.message); }
+window.registrar=async()=>{
+try{
+await createUserWithEmailAndPassword(auth,loginUser.value,loginPass.value);
+}catch(e){alert(e.message)}
 }
 
-window.logout=async function(){ await signOut(auth); }
+window.logout=async()=>{await signOut(auth)}
 
 function mostrarApp(){
-document.getElementById("loginBox").classList.add("hidden");
-document.getElementById("app").classList.remove("hidden");
-document.getElementById("saludo").innerText="Bienvenido "+usuarioActivo.email;
+loginBox.classList.add("hidden");
+app.classList.remove("hidden");
+saludo.innerText="Bienvenido "+usuarioActivo.email;
 }
 
-window.guardarDia=async function(){
+window.cambiarMes=async()=>{
+mesSeleccionado=selectorMes.value;
+await cargarDatos();
+}
 
-let entrada=document.getElementById("entrada").value;
-let salidaAlm=document.getElementById("salidaAlm").value;
-let entradaAlm=document.getElementById("entradaAlm").value;
-let salida=document.getElementById("salida").value;
+window.guardarConfiguracion=async()=>{
+let valor=parseFloat(inputPagoHora.value);
+await setDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"),{pagoHora:valor});
+pagoHora=valor;
+dashboardMensual();
+}
 
-if(!entrada||!salida||!salidaAlm||!entradaAlm)
+async function cargarConfiguracion(){
+const snap=await getDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"));
+if(snap.exists()){
+pagoHora=snap.data().pagoHora;
+inputPagoHora.value=pagoHora;
+}
+}
+
+window.guardarDia=async()=>{
+let entradaVal=entrada.value;
+let salidaAlmVal=salidaAlm.value;
+let entradaAlmVal=entradaAlm.value;
+let salidaVal=salida.value;
+
+if(!entradaVal||!salidaVal||!salidaAlmVal||!entradaAlmVal)
 return alert("Complete todas las horas");
 
-let hoy=new Date();
-let fecha=hoy.toLocaleDateString('es-ES');
+let fecha=new Date().toLocaleDateString('es-ES');
 
-let inicio=new Date(`2024-01-01T${entrada}`);
-let fin=new Date(`2024-01-01T${salida}`);
-let alm1=new Date(`2024-01-01T${salidaAlm}`);
-let alm2=new Date(`2024-01-01T${entradaAlm}`);
+let inicio=new Date(`2024-01-01T${entradaVal}`);
+let fin=new Date(`2024-01-01T${salidaVal}`);
+let alm1=new Date(`2024-01-01T${salidaAlmVal}`);
+let alm2=new Date(`2024-01-01T${entradaAlmVal}`);
 
-let horas=(fin-inicio)/3600000;
-let almuerzo=(alm2-alm1)/3600000;
-let trabajadas=horas-almuerzo;
-
+let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
 let normales=Math.min(trabajadas,8);
 let extras=trabajadas>8?trabajadas-8:0;
 
-let data={
-fecha,
-entrada,
-salidaAlm,
-entradaAlm,
-salida,
-trabajadas,
-normales,
-extras
-};
+let data={fecha,entrada:entradaVal,salidaAlm:salidaAlmVal,entradaAlm:entradaAlmVal,salida:salidaVal,trabajadas,normales,extras};
 
 if(editandoId){
-await updateDoc(doc(db,"horas",usuarioActivo.uid,"registros",editandoId),data);
+await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
 editandoId=null;
 }else{
-await addDoc(collection(db,"horas",usuarioActivo.uid,"registros"),data);
+await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
 }
 
-document.getElementById("entrada").value="";
-document.getElementById("salidaAlm").value="";
-document.getElementById("entradaAlm").value="";
-document.getElementById("salida").value="";
-
+entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
 await cargarDatos();
 }
 
 async function cargarDatos(){
 datosUsuario=[];
-document.getElementById("tablaBody").innerHTML="";
+tablaBody.innerHTML="";
 
-const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"registros"));
+const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
 
 querySnapshot.forEach(docSnap=>{
 datosUsuario.push({id:docSnap.id,...docSnap.data()});
 });
 
-datosUsuario.sort((a,b)=> new Date(b.fecha.split("/").reverse()) - new Date(a.fecha.split("/").reverse()));
-
-datosUsuario.forEach(d=>agregarFila(d));
-dashboardMensual();
-}
-
-function agregarFila(d){
-document.getElementById("tablaBody").innerHTML+=`
+datosUsuario.forEach(d=>{
+tablaBody.innerHTML+=`
 <tr>
 <td>${d.fecha}</td>
 <td>${d.trabajadas.toFixed(2)}</td>
@@ -219,39 +273,31 @@ document.getElementById("tablaBody").innerHTML+=`
 <button onclick="eliminarDia('${d.id}')">🗑</button>
 </td>
 </tr>`;
+});
+
+dashboardMensual();
 }
 
-window.editarDia=function(id){
-let registro=datosUsuario.find(d=>d.id===id);
+window.editarDia=(id)=>{
+let r=datosUsuario.find(d=>d.id===id);
 editandoId=id;
-document.getElementById("entrada").value=registro.entrada;
-document.getElementById("salidaAlm").value=registro.salidaAlm;
-document.getElementById("entradaAlm").value=registro.entradaAlm;
-document.getElementById("salida").value=registro.salida;
-window.scrollTo({top:0,behavior:"smooth"});
+entrada.value=r.entrada;
+salidaAlm.value=r.salidaAlm;
+entradaAlm.value=r.entradaAlm;
+salida.value=r.salida;
 }
 
-window.eliminarDia=async function(id){
-if(!confirm("¿Eliminar este registro?")) return;
-await deleteDoc(doc(db,"horas",usuarioActivo.uid,"registros",id));
+window.eliminarDia=async(id)=>{
+if(!confirm("¿Eliminar registro?"))return;
+await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
 await cargarDatos();
 }
 
 function dashboardMensual(){
-
-let hoy=new Date();
-let mes=hoy.getMonth();
-let anio=hoy.getFullYear();
-
 let normales=0,extras=0;
-
 datosUsuario.forEach(d=>{
-let p=d.fecha.split("/");
-let fecha=new Date(p[2],p[1]-1,p[0]);
-if(fecha.getMonth()===mes && fecha.getFullYear()===anio){
 normales+=d.normales;
 extras+=d.extras;
-}
 });
 
 let bruto=(normales+extras)*pagoHora;
@@ -259,25 +305,52 @@ let ss=bruto*0.0975;
 let se=bruto*0.0125;
 let neto=bruto-ss-se;
 
-document.getElementById("mesNormales").innerText=normales.toFixed(2);
-document.getElementById("mesExtras").innerText=extras.toFixed(2);
-document.getElementById("mesTotal").innerText="$"+bruto.toFixed(2);
+mesNormales.innerText=normales.toFixed(2);
+mesExtras.innerText=extras.toFixed(2);
+mesTotal.innerText="$"+bruto.toFixed(2);
 
-document.getElementById("totalNormales").innerText=normales.toFixed(2);
-document.getElementById("totalExtras").innerText=extras.toFixed(2);
-document.getElementById("bruto").innerText=bruto.toFixed(2);
-document.getElementById("ss").innerText=ss.toFixed(2);
-document.getElementById("se").innerText=se.toFixed(2);
-document.getElementById("neto").innerText=neto.toFixed(2);
+totalNormales.innerText=normales.toFixed(2);
+totalExtras.innerText=extras.toFixed(2);
+bruto.innerText=bruto.toFixed(2);
+ss.innerText=ss.toFixed(2);
+se.innerText=se.toFixed(2);
+neto.innerText=neto.toFixed(2);
 
 if(grafica)grafica.destroy();
 
 let ctx=document.getElementById("graficaMes").getContext("2d");
 grafica=new Chart(ctx,{
 type:"bar",
-data:{labels:["Normales","Extras"],
-datasets:[{data:[normales,extras]}]}
+data:{
+labels:["Normales","Extras"],
+datasets:[{data:[normales,extras]}]
+}
 });
+}
+
+window.exportarExcel=function(){
+let datos=datosUsuario.map(d=>({
+Fecha:d.fecha,
+Trabajadas:d.trabajadas,
+Normales:d.normales,
+Extras:d.extras
+}));
+let ws=XLSX.utils.json_to_sheet(datos);
+let wb=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb,ws,"Mes");
+XLSX.writeFile(wb,`Horas_${mesSeleccionado}.xlsx`);
+}
+
+window.exportarPDF=function(){
+const { jsPDF } = window.jspdf;
+let pdf=new jsPDF();
+pdf.text("Resumen Mensual",10,10);
+let y=20;
+datosUsuario.forEach(d=>{
+pdf.text(`${d.fecha} - ${d.trabajadas.toFixed(2)}h`,10,y);
+y+=8;
+});
+pdf.save(`Horas_${mesSeleccionado}.pdf`);
 }
 
 </script>
