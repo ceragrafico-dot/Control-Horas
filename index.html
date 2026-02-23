@@ -278,6 +278,31 @@ tablaBody.innerHTML+=`
 dashboardMensual();
 }
 
+/* 🔹 CORRECCIÓN AGREGADA AQUÍ 🔹 */
+
+window.editarDia = function(id){
+let registro = datosUsuario.find(d => d.id === id);
+if(!registro) return;
+
+editandoId = id;
+entrada.value = registro.entrada;
+salidaAlm.value = registro.salidaAlm;
+entradaAlm.value = registro.entradaAlm;
+salida.value = registro.salida;
+}
+
+window.eliminarDia = async function(id){
+if(!confirm("¿Eliminar registro?")) return;
+
+await deleteDoc(
+doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id)
+);
+
+await cargarDatos();
+}
+
+/* 🔹 FIN DE CORRECCIÓN 🔹 */
+
 function dashboardMensual(){
 
 let normales=0;
