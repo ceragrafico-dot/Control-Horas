@@ -164,7 +164,7 @@ let mesSeleccionado=new Date().toISOString().slice(0,7);
 let grafica;
 let editandoId=null;
 
-document.getElementById("selectorMes").value=mesSeleccionado;
+selectorMes.value=mesSeleccionado;
 
 onAuthStateChanged(auth, async user=>{
 if(user){
@@ -173,8 +173,8 @@ mostrarApp();
 await cargarConfiguracion();
 await cargarDatos();
 }else{
-document.getElementById("loginBox").classList.remove("hidden");
-document.getElementById("app").classList.add("hidden");
+loginBox.classList.remove("hidden");
+app.classList.add("hidden");
 }
 });
 
@@ -278,43 +278,31 @@ tablaBody.innerHTML+=`
 dashboardMensual();
 }
 
-window.editarDia=(id)=>{
-let r=datosUsuario.find(d=>d.id===id);
-editandoId=id;
-entrada.value=r.entrada;
-salidaAlm.value=r.salidaAlm;
-entradaAlm.value=r.entradaAlm;
-salida.value=r.salida;
-}
-
-window.eliminarDia=async(id)=>{
-if(!confirm("¿Eliminar registro?"))return;
-await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
-await cargarDatos();
-}
-
 function dashboardMensual(){
-let normales=0,extras=0;
+
+let normales=0;
+let extras=0;
+
 datosUsuario.forEach(d=>{
 normales+=d.normales;
 extras+=d.extras;
 });
 
-let bruto=(normales+extras)*pagoHora;
-let ss=bruto*0.0975;
-let se=bruto*0.0125;
-let neto=bruto-ss-se;
+let brutoCalc=(normales+extras)*pagoHora;
+let ssCalc=brutoCalc*0.0975;
+let seCalc=brutoCalc*0.0125;
+let netoCalc=brutoCalc-ssCalc-seCalc;
 
 mesNormales.innerText=normales.toFixed(2);
 mesExtras.innerText=extras.toFixed(2);
-mesTotal.innerText="$"+bruto.toFixed(2);
+mesTotal.innerText="$"+brutoCalc.toFixed(2);
 
 totalNormales.innerText=normales.toFixed(2);
 totalExtras.innerText=extras.toFixed(2);
-bruto.innerText=bruto.toFixed(2);
-ss.innerText=ss.toFixed(2);
-se.innerText=se.toFixed(2);
-neto.innerText=neto.toFixed(2);
+document.getElementById("bruto").innerText=brutoCalc.toFixed(2);
+document.getElementById("ss").innerText=ssCalc.toFixed(2);
+document.getElementById("se").innerText=seCalc.toFixed(2);
+document.getElementById("neto").innerText=netoCalc.toFixed(2);
 
 if(grafica)grafica.destroy();
 
@@ -326,31 +314,6 @@ labels:["Normales","Extras"],
 datasets:[{data:[normales,extras]}]
 }
 });
-}
-
-window.exportarExcel=function(){
-let datos=datosUsuario.map(d=>({
-Fecha:d.fecha,
-Trabajadas:d.trabajadas,
-Normales:d.normales,
-Extras:d.extras
-}));
-let ws=XLSX.utils.json_to_sheet(datos);
-let wb=XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb,ws,"Mes");
-XLSX.writeFile(wb,`Horas_${mesSeleccionado}.xlsx`);
-}
-
-window.exportarPDF=function(){
-const { jsPDF } = window.jspdf;
-let pdf=new jsPDF();
-pdf.text("Resumen Mensual",10,10);
-let y=20;
-datosUsuario.forEach(d=>{
-pdf.text(`${d.fecha} - ${d.trabajadas.toFixed(2)}h`,10,y);
-y+=8;
-});
-pdf.save(`Horas_${mesSeleccionado}.pdf`);
 }
 
 </script>
