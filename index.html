@@ -58,6 +58,12 @@ max-width:400px;
 margin:80px auto;
 text-align:center;
 }
+hr{
+margin:15px 0;
+border:0;
+height:1px;
+background:#eee;
+}
 </style>
 </head>
 <body>
@@ -99,8 +105,6 @@ Entrada Almuerzo <input type="time" id="entradaAlm">
 Salida <input type="time" id="salida">
 <br><br>
 <button onclick="guardarDia()">Guardar Día</button>
-<button onclick="exportarExcel()">Exportar Excel</button>
-<button onclick="exportarPDF()">Exportar PDF</button>
 </div>
 
 <div class="card">
@@ -126,12 +130,20 @@ Salida <input type="time" id="salida">
 
 <div class="card">
 <h3>Resumen General del Mes</h3>
+
 <p>Total Horas Normales: <span id="totalNormales">0.00</span></p>
 <p>Total Horas Extras: <span id="totalExtras">0.00</span></p>
-<p>Total Bruto: $<span id="bruto">0.00</span></p>
-<p>Seguro Social (9.75%): $<span id="ss">0.00</span></p>
-<p>Seguro Educativo (1.25%): $<span id="se">0.00</span></p>
-<p><strong>Total Neto: $<span id="neto">0.00</span></strong></p>
+
+<hr>
+
+<p>Total Bruto Horas Normales: $<span id="brutoNormales">0.00</span></p>
+<p>Total Bruto Horas Extras: $<span id="brutoExtras">0.00</span></p>
+<p><strong>Total Bruto General: $<span id="bruto">0.00</span></strong></p>
+
+<hr>
+
+<p>Total Neto SIN Extras: $<span id="netoSinExtras">0.00</span></p>
+<p><strong>Total Neto CON Extras: $<span id="neto">0.00</span></strong></p>
 </div>
 
 <canvas id="graficaMes"></canvas>
@@ -219,6 +231,7 @@ inputPagoHora.value=pagoHora;
 }
 
 window.guardarDia=async()=>{
+
 let entradaVal=entrada.value;
 let salidaAlmVal=salidaAlm.value;
 let entradaAlmVal=entradaAlm.value;
@@ -226,8 +239,6 @@ let salidaVal=salida.value;
 
 if(!entradaVal||!salidaVal||!salidaAlmVal||!entradaAlmVal)
 return alert("Complete todas las horas");
-
-let fecha=new Date().toLocaleDateString('es-ES');
 
 let inicio=new Date(`2024-01-01T${entradaVal}`);
 let fin=new Date(`2024-01-01T${salidaVal}`);
@@ -238,7 +249,25 @@ let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
 let normales=Math.min(trabajadas,8);
 let extras=trabajadas>8?trabajadas-8:0;
 
-let data={fecha,entrada:entradaVal,salidaAlm:salidaAlmVal,entradaAlm:entradaAlmVal,salida:salidaVal,trabajadas,normales,extras};
+let fecha;
+
+if(editandoId){
+let registroOriginal = datosUsuario.find(d => d.id === editandoId);
+fecha = registroOriginal.fecha;
+}else{
+fecha = new Date().toLocaleDateString('es-ES');
+}
+
+let data={
+fecha,
+entrada:entradaVal,
+salidaAlm:salidaAlmVal,
+entradaAlm:entradaAlmVal,
+salida:salidaVal,
+trabajadas,
+normales,
+extras
+};
 
 if(editandoId){
 await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
@@ -278,30 +307,21 @@ tablaBody.innerHTML+=`
 dashboardMensual();
 }
 
-/* 🔹 CORRECCIÓN AGREGADA AQUÍ 🔹 */
-
-window.editarDia = function(id){
-let registro = datosUsuario.find(d => d.id === id);
-if(!registro) return;
-
-editandoId = id;
-entrada.value = registro.entrada;
-salidaAlm.value = registro.salidaAlm;
-entradaAlm.value = registro.entradaAlm;
-salida.value = registro.salida;
+window.editarDia=function(id){
+let registro=datosUsuario.find(d=>d.id===id);
+if(!registro)return;
+editandoId=id;
+entrada.value=registro.entrada;
+salidaAlm.value=registro.salidaAlm;
+entradaAlm.value=registro.entradaAlm;
+salida.value=registro.salida;
 }
 
-window.eliminarDia = async function(id){
-if(!confirm("¿Eliminar registro?")) return;
-
-await deleteDoc(
-doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id)
-);
-
+window.eliminarDia=async function(id){
+if(!confirm("¿Eliminar registro?"))return;
+await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
 await cargarDatos();
 }
-
-/* 🔹 FIN DE CORRECCIÓN 🔹 */
 
 function dashboardMensual(){
 
@@ -313,21 +333,31 @@ normales+=d.normales;
 extras+=d.extras;
 });
 
-let brutoCalc=(normales+extras)*pagoHora;
-let ssCalc=brutoCalc*0.0975;
-let seCalc=brutoCalc*0.0125;
-let netoCalc=brutoCalc-ssCalc-seCalc;
+let brutoNormales=normales*pagoHora;
+let brutoExtras=extras*pagoHora;
+let brutoTotal=brutoNormales+brutoExtras;
+
+let ssNormales=brutoNormales*0.0975;
+let seNormales=brutoNormales*0.0125;
+let netoSinExtras=brutoNormales-ssNormales-seNormales;
+
+let ssTotal=brutoTotal*0.0975;
+let seTotal=brutoTotal*0.0125;
+let netoConExtras=brutoTotal-ssTotal-seTotal;
 
 mesNormales.innerText=normales.toFixed(2);
 mesExtras.innerText=extras.toFixed(2);
-mesTotal.innerText="$"+brutoCalc.toFixed(2);
+mesTotal.innerText="$"+brutoTotal.toFixed(2);
 
 totalNormales.innerText=normales.toFixed(2);
 totalExtras.innerText=extras.toFixed(2);
-document.getElementById("bruto").innerText=brutoCalc.toFixed(2);
-document.getElementById("ss").innerText=ssCalc.toFixed(2);
-document.getElementById("se").innerText=seCalc.toFixed(2);
-document.getElementById("neto").innerText=netoCalc.toFixed(2);
+
+document.getElementById("brutoNormales").innerText=brutoNormales.toFixed(2);
+document.getElementById("brutoExtras").innerText=brutoExtras.toFixed(2);
+document.getElementById("bruto").innerText=brutoTotal.toFixed(2);
+
+document.getElementById("netoSinExtras").innerText=netoSinExtras.toFixed(2);
+document.getElementById("neto").innerText=netoConExtras.toFixed(2);
 
 if(grafica)grafica.destroy();
 
