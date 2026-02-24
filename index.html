@@ -71,6 +71,7 @@ background:#eee;
     align-items: center;
     gap: 10px;
 }
+.negativo { color: #dc2626; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -98,10 +99,14 @@ background:#eee;
 </div>
 
 <div class="card">
-<h3>Configuración</h3>
-Pago por hora:
-<input type="number" id="inputPagoHora" step="0.01">
-<button onclick="guardarConfiguracion()">Guardar Pago</button>
+<h3>Configuración y Descuentos</h3>
+<div class="input-group">
+    <div>Pago por hora ($): <input type="number" id="inputPagoHora" step="0.01"></div>
+    <div>Otros Descuentos ($): <input type="number" id="inputOtrosDescuentos" step="0.01" value="0" oninput="dashboardMensual()"></div>
+</div>
+<br>
+<button onclick="guardarConfiguracion()">Guardar Configuración</button>
+<small style="display:block; margin-top:5px; color:#666;">* Los descuentos incluyen adelantos, multas o mercancía.</small>
 </div>
 
 <div class="card">
@@ -153,7 +158,11 @@ Pago por hora:
 
 <hr>
 
-<p>Total Neto Estimado (SS 9.75% + SE 1.25%):</p>
+<p>Deducciones de Ley (SS 9.75% + SE 1.25%): $<span id="deduccionesLey">0.00</span></p>
+<p>Otros Descuentos (Vales/Mercancía/Multas): <span class="negativo">-$<span id="resumenOtrosDescuentos">0.00</span></span></p>
+
+<hr>
+
 <p>Total Neto SIN Extras: $<span id="netoSinExtras">0.00</span></p>
 <p><strong>Total Neto CON Extras: $<span id="neto">0.00</span></strong></p>
 </div>
@@ -188,7 +197,6 @@ let mesSeleccionado=new Date().toISOString().slice(0,7);
 let grafica;
 let editandoId=null;
 
-// Inicializar fecha de hoy en el registro
 document.getElementById('fechaRegistro').value = new Date().toISOString().split('T')[0];
 selectorMes.value=mesSeleccionado;
 
@@ -230,8 +238,12 @@ await cargarDatos();
 }
 
 window.guardarConfiguracion=async()=>{
-let valor=parseFloat(inputPagoHora.value);
-await setDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"),{pagoHora:valor});
+let valor=parseFloat(inputPagoHora.value) || 0;
+let descuentos=parseFloat(inputOtrosDescuentos.value) || 0;
+await setDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"),{
+    pagoHora:valor,
+    otrosDescuentos:descuentos
+});
 pagoHora=valor;
 dashboardMensual();
 }
@@ -239,8 +251,9 @@ dashboardMensual();
 async function cargarConfiguracion(){
 const snap=await getDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"));
 if(snap.exists()){
-pagoHora=snap.data().pagoHora;
+pagoHora=snap.data().pagoHora || 0;
 inputPagoHora.value=pagoHora;
+inputOtrosDescuentos.value=snap.data().otrosDescuentos || 0;
 }
 }
 
@@ -254,13 +267,12 @@ let salidaVal=salida.value;
 if(!fechaVal || !entradaVal || !salidaVal || !salidaAlmVal || !entradaAlmVal)
 return alert("Complete la fecha y todas las horas");
 
-// Cálculos de horas
 let inicio=new Date(`2024-01-01T${entradaVal}`);
 let fin=new Date(`2024-01-01T${salidaVal}`);
 let alm1=new Date(`2024-01-01T${salidaAlmVal}`);
 let alm2=new Date(`2024-01-01T${entradaAlmVal}`);
 
-if (fin < inicio) fin.setDate(fin.getDate() + 1); // Turnos nocturnos básicos
+if (fin < inicio) fin.setDate(fin.getDate() + 1);
 
 let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
 if(trabajadas < 0) return alert("Error en el cálculo: Revise las horas de almuerzo.");
@@ -287,8 +299,6 @@ try {
     }else{
     await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
     }
-
-    // Resetear campos
     entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
     fechaRegistro.value = new Date().toISOString().split('T')[0];
     await cargarDatos();
@@ -307,20 +317,13 @@ window.cancelarEdicion = () => {
 async function cargarDatos(){
 datosUsuario=[];
 tablaBody.innerHTML="";
-
 const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
-
 querySnapshot.forEach(docSnap=>{
 datosUsuario.push({id:docSnap.id,...docSnap.data()});
 });
-
-// Ordenar datos por fecha
 datosUsuario.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-
 datosUsuario.forEach(d=>{
-// Formatear fecha para mostrar
 let fechaFormat = d.fecha.split('-').reverse().join('/');
-
 tablaBody.innerHTML+=`
 <tr>
 <td>${fechaFormat}</td>
@@ -333,7 +336,6 @@ tablaBody.innerHTML+=`
 </td>
 </tr>`;
 });
-
 dashboardMensual();
 }
 
@@ -356,9 +358,11 @@ await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"regist
 await cargarDatos();
 }
 
-function dashboardMensual(){
+// HACER ESTA FUNCIÓN GLOBAL PARA EL EVENTO ONINPUT
+window.dashboardMensual = function(){
 let normales=0;
 let extras=0;
+let otrosDescuentos = parseFloat(document.getElementById('inputOtrosDescuentos').value) || 0;
 
 datosUsuario.forEach(d=>{
 normales+=d.normales;
@@ -370,13 +374,17 @@ let brutoExtras=extras*pagoHora;
 let brutoTotal=brutoNormales+brutoExtras;
 
 // Deducciones Panamá (SS 9.75% + SE 1.25% = 11% total)
-let ssNormales=brutoNormales*0.0975;
-let seNormales=brutoNormales*0.0125;
-let netoSinExtras=brutoNormales-ssNormales-seNormales;
-
 let ssTotal=brutoTotal*0.0975;
 let seTotal=brutoTotal*0.0125;
-let netoConExtras=brutoTotal-ssTotal-seTotal;
+let totalDeduccionesLey = ssTotal + seTotal;
+
+// Neto SIN Extras (Calculado sobre el bruto normal, menos su parte de ley, menos otros descuentos)
+let ssNormales = brutoNormales * 0.0975;
+let seNormales = brutoNormales * 0.0125;
+let netoSinExtras = brutoNormales - ssNormales - seNormales - otrosDescuentos;
+
+// Neto CON Extras
+let netoConExtras = brutoTotal - totalDeduccionesLey - otrosDescuentos;
 
 mesNormales.innerText=normales.toFixed(2);
 mesExtras.innerText=extras.toFixed(2);
@@ -389,26 +397,25 @@ document.getElementById("brutoNormales").innerText=brutoNormales.toFixed(2);
 document.getElementById("brutoExtras").innerText=brutoExtras.toFixed(2);
 document.getElementById("bruto").innerText=brutoTotal.toFixed(2);
 
+document.getElementById("deduccionesLey").innerText=totalDeduccionesLey.toFixed(2);
+document.getElementById("resumenOtrosDescuentos").innerText=otrosDescuentos.toFixed(2);
+
 document.getElementById("netoSinExtras").innerText=netoSinExtras.toFixed(2);
 document.getElementById("neto").innerText=netoConExtras.toFixed(2);
 
 if(grafica)grafica.destroy();
-
 let ctx=document.getElementById("graficaMes").getContext("2d");
 grafica=new Chart(ctx,{
 type:"bar",
 data:{
-labels:["Horas Normales","Horas Extras"],
+labels:["Normales","Extras"],
 datasets:[{
-    label: 'Total Horas',
+    label: 'Horas',
     data:[normales,extras],
     backgroundColor: ['#2563eb', '#fbbf24']
 }]
 },
-options: {
-    responsive: true,
-    scales: { y: { beginAtZero: true } }
-}
+options: { responsive: true, scales: { y: { beginAtZero: true } } }
 });
 }
 
