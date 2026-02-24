@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Control de Horas Pro - Reporte PDF</title>
+<title>Control de Horas Pro - César Ramos</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,101 +26,98 @@ th{background:#2563eb;color:white}
 hr{ margin:15px 0; border:0; height:1px; background:#eee; }
 .input-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .negativo { color: #dc2626; font-weight: bold; }
-.btn-pdf { background: #e11d48; margin-left: 5px; } /* Color rojo para PDF */
+.btn-pdf { background: #e11d48; margin-left: 5px; }
+.btn-excel { background: #16a34a; margin-left: 5px; }
 </style>
 </head>
 <body>
 
 <div id="loginBox" class="card">
-<h2>Bienvenido al Cálculo de tus Horas Laborales</h2>
-<input type="email" id="loginUser" placeholder="Correo electrónico"><br>
-<input type="password" id="loginPass" placeholder="Contraseña"><br>
-<button onclick="login()">Ingresar</button>
-<button onclick="registrar()">Registrar</button>
-<p id="loginMensaje"></p>
+    <h2>Control de Horas Laborales</h2>
+    <input type="text" id="regNombre" placeholder="Tu Nombre Real"><br>
+    <input type="email" id="loginUser" placeholder="Correo electrónico"><br>
+    <input type="password" id="loginPass" placeholder="Contraseña"><br>
+    <button onclick="login()">Ingresar</button>
+    <button onclick="registrar()" style="background:#10b981">Registrar Nuevo</button>
+    <p id="loginMensaje" style="color:red"></p>
 </div>
 
 <div id="app" class="hidden">
+    <div class="card">
+        <h2 id="saludo"></h2>
+        <button onclick="logout()" style="background:#64748b">Cerrar Sesión</button>
+    </div>
 
-<div class="card">
-<h2 id="saludo"></h2>
-<button onclick="logout()">Cerrar Sesión</button>
-</div>
+    <div class="card">
+        <h3>Vista Mensual y Reportes</h3>
+        <input type="month" id="selectorMes">
+        <button onclick="cambiarMes()">Ver Mes</button>
+        <button onclick="generarPDF()" class="btn-pdf">📄 PDF</button>
+        <button onclick="exportarExcel()" class="btn-excel">📊 Excel</button>
+    </div>
 
-<div class="card">
-<h3>Seleccionar Mes de Visualización</h3>
-<input type="month" id="selectorMes">
-<button onclick="cambiarMes()">Cambiar Mes</button>
-<button onclick="generarPDF()" class="btn-pdf">📄 Descargar Reporte PDF</button>
-</div>
+    <div class="card">
+        <h3>Configuración de Pago y Descuentos</h3>
+        <div class="input-group">
+            <div>Pago Hora ($): <input type="number" id="inputPagoHora" step="0.01"></div>
+            <div>Otros Descuentos ($): <input type="number" id="inputOtrosDescuentos" step="0.01" value="0" oninput="dashboardMensual()"></div>
+        </div>
+        <br>
+        <button onclick="guardarConfiguracion()">Guardar Configuración</button>
+    </div>
 
-<div class="card">
-<h3>Configuración y Descuentos</h3>
-<div class="input-group">
-    <div>Pago por hora ($): <input type="number" id="inputPagoHora" step="0.01"></div>
-    <div>Otros Descuentos ($): <input type="number" id="inputOtrosDescuentos" step="0.01" value="0" oninput="dashboardMensual()"></div>
-</div>
-<br>
-<button onclick="guardarConfiguracion()">Guardar Configuración</button>
-</div>
+    <div class="card">
+        <h3>Ingreso de Horas</h3>
+        <div class="input-group">
+            <div>Fecha: <input type="date" id="fechaRegistro"></div>
+            <div>Entrada: <input type="time" id="entrada"></div>
+            <div>S. Almuerzo: <input type="time" id="salidaAlm"></div>
+            <div>E. Almuerzo: <input type="time" id="entradaAlm"></div>
+            <div>Salida Final: <input type="time" id="salida"></div>
+        </div>
+        <br>
+        <button onclick="guardarDia()" style="background: #10b981;">Guardar Día</button>
+        <button onclick="cancelarEdicion()" id="btnCancelar" class="hidden" style="background: #64748b;">Cancelar</button>
+    </div>
 
-<div class="card">
-<h3>Ingreso de Horas</h3>
-<div class="input-group">
-    <div>Fecha: <input type="date" id="fechaRegistro"></div>
-    <div>Entrada: <input type="time" id="entrada"></div>
-    <div>Salida Almuerzo: <input type="time" id="salidaAlm"></div>
-    <div>Entrada Almuerzo: <input type="time" id="entradaAlm"></div>
-    <div>Salida: <input type="time" id="salida"></div>
-</div>
-<br>
-<button onclick="guardarDia()" style="background: #10b981;">Guardar Registro</button>
-<button onclick="cancelarEdicion()" id="btnCancelar" class="hidden" style="background: #64748b;">Cancelar</button>
-</div>
+    <div class="card" style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Trabajadas</th>
+                    <th>Normales</th>
+                    <th>Extras</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaBody"></tbody>
+        </table>
+    </div>
 
-<div class="card" style="overflow-x:auto;">
-<table>
-<thead>
-<tr>
-<th>Fecha</th>
-<th>Trabajadas</th>
-<th>Normales</th>
-<th>Extras</th>
-<th>Acciones</th>
-</tr>
-</thead>
-<tbody id="tablaBody"></tbody>
-</table>
-</div>
+    <div class="dashboard">
+        <div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
+        <div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
+        <div class="card"><p>Total Bruto</p><h3 id="mesTotal">$0.00</h3></div>
+    </div>
 
-<div class="dashboard">
-<div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
-<div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
-<div class="card"><p>Total Bruto Mes</p><h3 id="mesTotal">$0.00</h3></div>
-</div>
+    <div class="card">
+        <h3>Resumen Financiero (Panamá)</h3>
+        <p>Bruto Normales: $<span id="brutoNormales">0.00</span></p>
+        <p>Bruto Extras: $<span id="brutoExtras">0.00</span></p>
+        <p><strong>Bruto Total: $<span id="bruto">0.00</span></strong></p>
+        <hr>
+        <p>Ley (SS 9.75% + SE 1.25%): $<span id="deduccionesLey">0.00</span></p>
+        <p>Otros Descuentos: <span class="negativo">-$<span id="resumenOtrosDescuentos">0.00</span></span></p>
+        <hr>
+        <p>Neto Sin Extras: $<span id="netoSinExtras">0.00</span></p>
+        <p><strong>NETO A RECIBIR: $<span id="neto">0.00</span></strong></p>
+    </div>
 
-<div class="card">
-<h3>Resumen General Detallado</h3>
-<p>Total Horas Normales: <span id="totalNormales">0.00</span></p>
-<p>Total Horas Extras: <span id="totalExtras">0.00</span></p>
-<hr>
-<p>Total Bruto Horas Normales: $<span id="brutoNormales">0.00</span></p>
-<p>Total Bruto Horas Extras: $<span id="brutoExtras">0.00</span></p>
-<p><strong>Total Bruto General: $<span id="bruto">0.00</span></strong></p>
-<hr>
-<p>Deducciones de Ley (SS 9.75% + SE 1.25%): $<span id="deduccionesLey">0.00</span></p>
-<p>Otros Descuentos (Adelantos/Multas): <span class="negativo">-$<span id="resumenOtrosDescuentos">0.00</span></span></p>
-<hr>
-<p>Total Neto SIN Extras: $<span id="netoSinExtras">0.00</span></p>
-<p><strong>Total Neto CON Extras: $<span id="neto">0.00</span></strong></p>
-</div>
-
-<canvas id="graficaMes" style="max-height: 400px;"></canvas>
-
+    <canvas id="graficaMes" style="max-height: 350px;"></canvas>
 </div>
 
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -134,268 +131,218 @@ const firebaseConfig = {
   appId: "1:554905911145:web:5d6664ecf3f368256b87f8"
 };
 
-const appFirebase = initializeApp(firebaseConfig);
-const db = getFirestore(appFirebase);
-const auth = getAuth(appFirebase);
+const appF = initializeApp(firebaseConfig);
+const db = getFirestore(appF);
+const auth = getAuth(appF);
 
-let usuarioActivo=null;
-let datosUsuario=[];
-let pagoHora=0;
+let usuarioActivo=null, datosUsuario=[], pagoHora=0, grafica;
 let mesSeleccionado=new Date().toISOString().slice(0,7);
-let grafica;
 let editandoId=null;
 
 document.getElementById('fechaRegistro').value = new Date().toISOString().split('T')[0];
-selectorMes.value=mesSeleccionado;
+document.getElementById('selectorMes').value = mesSeleccionado;
 
-onAuthStateChanged(auth, async user=>{
-if(user){
-usuarioActivo=user;
-mostrarApp();
-await cargarConfiguracion();
-await cargarDatos();
-}else{
-loginBox.classList.remove("hidden");
-app.classList.add("hidden");
-}
+onAuthStateChanged(auth, async user => {
+    if(user){
+        usuarioActivo = user;
+        const uSnap = await getDoc(doc(db, "usuarios", user.uid));
+        const nombreDisplay = uSnap.exists() ? uSnap.data().nombre : user.email;
+        
+        document.getElementById('loginBox').classList.add("hidden");
+        document.getElementById('app').classList.remove("hidden");
+        document.getElementById('saludo').innerText = "Bienvenido, " + nombreDisplay;
+        
+        await cargarConfiguracion();
+        await cargarDatos();
+    } else {
+        document.getElementById('loginBox').classList.remove("hidden");
+        document.getElementById('app').classList.add("hidden");
+    }
 });
 
-window.login=async()=>{
-try{ await signInWithEmailAndPassword(auth,loginUser.value,loginPass.value); }
-catch(e){loginMensaje.innerText=e.message}
-}
-
-window.registrar=async()=>{
-try{ await createUserWithEmailAndPassword(auth,loginUser.value,loginPass.value); }
-catch(e){alert(e.message)}
-}
-
-window.logout=async()=>{await signOut(auth)}
-
-function mostrarApp(){
-loginBox.classList.add("hidden");
-app.classList.remove("hidden");
-saludo.innerText="Bienvenido "+usuarioActivo.email;
-}
-
-window.cambiarMes=async()=>{
-mesSeleccionado=selectorMes.value;
-await cargarDatos();
-}
-
-window.guardarConfiguracion=async()=>{
-let valor=parseFloat(inputPagoHora.value) || 0;
-let descuentos=parseFloat(inputOtrosDescuentos.value) || 0;
-await setDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"),{
-    pagoHora:valor,
-    otrosDescuentos:descuentos
-});
-pagoHora=valor;
-dashboardMensual();
-}
-
-async function cargarConfiguracion(){
-const snap=await getDoc(doc(db,"horas",usuarioActivo.uid,"configuracion","datos"));
-if(snap.exists()){
-pagoHora=snap.data().pagoHora || 0;
-inputPagoHora.value=pagoHora;
-inputOtrosDescuentos.value=snap.data().otrosDescuentos || 0;
-}
-}
-
-window.guardarDia=async()=>{
-let fechaVal = fechaRegistro.value;
-let entradaVal=entrada.value;
-let salidaAlmVal=salidaAlm.value;
-let entradaAlmVal=entradaAlm.value;
-let salidaVal=salida.value;
-
-if(!fechaVal || !entradaVal || !salidaVal || !salidaAlmVal || !entradaAlmVal)
-return alert("Complete la fecha y todas las horas");
-
-let inicio=new Date(`2024-01-01T${entradaVal}`);
-let fin=new Date(`2024-01-01T${salidaVal}`);
-let alm1=new Date(`2024-01-01T${salidaAlmVal}`);
-let alm2=new Date(`2024-01-01T${entradaAlmVal}`);
-
-if (fin < inicio) fin.setDate(fin.getDate() + 1);
-
-let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
-if(trabajadas < 0) return alert("Error en el cálculo: Revise las horas de almuerzo.");
-
-let normales=Math.min(trabajadas,8);
-let extras=trabajadas>8?trabajadas-8:0;
-
-let data={
-fecha: fechaVal,
-entrada:entradaVal,
-salidaAlm:salidaAlmVal,
-entradaAlm:entradaAlmVal,
-salida:salidaVal,
-trabajadas, normales, extras
+window.login = async () => {
+    const email = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    try { 
+        await signInWithEmailAndPassword(auth, email, pass); 
+    }
+    catch(e) { 
+        document.getElementById('loginMensaje').innerText = "Error: Usuario o clave incorrecta"; 
+    }
 };
 
-try {
-    if(editandoId){
-    await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
-    editandoId=null;
-    btnCancelar.classList.add("hidden");
-    }else{
-    await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
-    }
-    entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
-    fechaRegistro.value = new Date().toISOString().split('T')[0];
+window.registrar = async () => {
+    const nom = document.getElementById('regNombre').value;
+    const email = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    if(!nom || !email || !pass) return alert("Completa nombre, correo y clave");
+    try {
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await setDoc(doc(db, "usuarios", cred.user.uid), { nombre: nom });
+        alert("¡Registro exitoso!");
+    } catch(e) { alert(e.message); }
+};
+
+window.logout = () => signOut(auth);
+
+window.cambiarMes = async () => {
+    mesSeleccionado = document.getElementById('selectorMes').value;
     await cargarDatos();
-} catch (e) { alert("Error al guardar: " + e.message); }
+};
+
+window.guardarConfiguracion = async () => {
+    pagoHora = parseFloat(document.getElementById('inputPagoHora').value) || 0;
+    const desc = parseFloat(document.getElementById('inputOtrosDescuentos').value) || 0;
+    await setDoc(doc(db, "horas", usuarioActivo.uid, "configuracion", "datos"), { pagoHora, otrosDescuentos: desc });
+    dashboardMensual();
+};
+
+async function cargarConfiguracion(){
+    const snap = await getDoc(doc(db, "horas", usuarioActivo.uid, "configuracion", "datos"));
+    if(snap.exists()){
+        pagoHora = snap.data().pagoHora;
+        document.getElementById('inputPagoHora').value = pagoHora;
+        document.getElementById('inputOtrosDescuentos').value = snap.data().otrosDescuentos || 0;
+    }
 }
+
+window.guardarDia = async () => {
+    const f=document.getElementById('fechaRegistro').value;
+    const ent=document.getElementById('entrada').value;
+    const sA=document.getElementById('salidaAlm').value;
+    const eA=document.getElementById('entradaAlm').value;
+    const sF=document.getElementById('salida').value;
+    
+    if(!f || !ent || !sA || !eA || !sF) return alert("Completa todos los campos");
+
+    const tE = new Date(`2000-01-01T${ent}`), tSA = new Date(`2000-01-01T${sA}`), 
+          tEA = new Date(`2000-01-01T${eA}`), tSF = new Date(`2000-01-01T${sF}`);
+
+    if(tSA <= tE || tEA <= tSA || tSF <= tEA) return alert("Error: Revisa el almuerzo");
+
+    const trabajadas = ((tSF - tE) - (tEA - tSA)) / 3600000;
+    const normales = Math.min(trabajadas, 8), extras = trabajadas > 8 ? trabajadas - 8 : 0;
+    const data = { fecha:f, entrada:ent, salidaAlm:sA, entradaAlm:eA, salida:sF, trabajadas, normales, extras };
+
+    try {
+        if(editandoId){
+            await updateDoc(doc(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros", editandoId), data);
+            editandoId = null; document.getElementById('btnCancelar').classList.add("hidden");
+        } else {
+            await addDoc(collection(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros"), data);
+        }
+        document.getElementById('entrada').value=""; document.getElementById('salidaAlm').value=""; 
+        document.getElementById('entradaAlm').value=""; document.getElementById('salida').value="";
+        await cargarDatos();
+    } catch(e) { alert(e.message); }
+};
+
+async function cargarDatos(){
+    const snap = await getDocs(collection(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros"));
+    datosUsuario = [];
+    snap.forEach(d => datosUsuario.push({id: d.id, ...d.data()}));
+    datosUsuario.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    
+    const tbody = document.getElementById('tablaBody');
+    tbody.innerHTML = "";
+    datosUsuario.forEach(d => {
+        tbody.innerHTML += `<tr>
+            <td>${d.fecha.split('-').reverse().join('/')}</td>
+            <td>${d.trabajadas.toFixed(2)}h</td>
+            <td>${d.normales.toFixed(2)}</td>
+            <td>${d.extras.toFixed(2)}</td>
+            <td>
+                <button onclick="editarDia('${d.id}')" style="background:#f59e0b">✏</button>
+                <button onclick="eliminarDia('${d.id}')" style="background:#ef4444">🗑</button>
+            </td>
+        </tr>`;
+    });
+    dashboardMensual();
+}
+
+window.editarDia = (id) => {
+    const r = datosUsuario.find(d => d.id === id);
+    editandoId = id;
+    document.getElementById('fechaRegistro').value = r.fecha; 
+    document.getElementById('entrada').value = r.entrada;
+    document.getElementById('salidaAlm').value = r.salidaAlm; 
+    document.getElementById('entradaAlm').value = r.entradaAlm;
+    document.getElementById('salida').value = r.salida; 
+    document.getElementById('btnCancelar').classList.remove("hidden");
+    window.scrollTo(0,0);
+};
+
+window.eliminarDia = async (id) => {
+    if(confirm("¿Borrar?")) { 
+        await deleteDoc(doc(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros", id)); 
+        await cargarDatos(); 
+    }
+};
 
 window.cancelarEdicion = () => {
     editandoId = null;
-    entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
-    btnCancelar.classList.add("hidden");
+    document.getElementById('entrada').value=""; document.getElementById('salidaAlm').value=""; 
+    document.getElementById('entradaAlm').value=""; document.getElementById('salida').value="";
+    document.getElementById('btnCancelar').classList.add("hidden");
 }
 
-async function cargarDatos(){
-datosUsuario=[];
-tablaBody.innerHTML="";
-const querySnapshot=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
-querySnapshot.forEach(docSnap=>{ datosUsuario.push({id:docSnap.id,...docSnap.data()}); });
-datosUsuario.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-datosUsuario.forEach(d=>{
-let fechaFormat = d.fecha.split('-').reverse().join('/');
-tablaBody.innerHTML+=`
-<tr>
-<td>${fechaFormat}</td>
-<td>${d.trabajadas.toFixed(2)}</td>
-<td>${d.normales.toFixed(2)}</td>
-<td>${d.extras.toFixed(2)}</td>
-<td>
-<button onclick="editarDia('${d.id}')" style="background:#f59e0b">✏</button>
-<button onclick="eliminarDia('${d.id}')" style="background:#ef4444">🗑</button>
-</td>
-</tr>`;
-});
-dashboardMensual();
-}
+window.dashboardMensual = function() {
+    let norm = 0, ext = 0;
+    const otrosDesc = parseFloat(document.getElementById('inputOtrosDescuentos').value) || 0;
+    datosUsuario.forEach(d => { norm += d.normales; ext += d.extras; });
 
-window.editarDia=function(id){
-let registro=datosUsuario.find(d=>d.id===id);
-if(!registro)return;
-editandoId=id;
-fechaRegistro.value = registro.fecha;
-entrada.value=registro.entrada;
-salidaAlm.value=registro.salidaAlm;
-entradaAlm.value=registro.entradaAlm;
-salida.value=registro.salida;
-btnCancelar.classList.remove("hidden");
-window.scrollTo(0,0);
-}
+    const bNorm = norm * pagoHora, bExt = ext * pagoHora, bTotal = bNorm + bExt;
+    const ley = bTotal * 0.11;
 
-window.eliminarDia=async function(id){
-if(!confirm("¿Eliminar registro?"))return;
-await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
-await cargarDatos();
-}
+    document.getElementById('mesNormales').innerText = norm.toFixed(2);
+    document.getElementById('mesExtras').innerText = ext.toFixed(2);
+    document.getElementById('mesTotal').innerText = "$" + bTotal.toFixed(2);
+    document.getElementById('brutoNormales').innerText = bNorm.toFixed(2);
+    document.getElementById('brutoExtras').innerText = bExt.toFixed(2);
+    document.getElementById('bruto').innerText = bTotal.toFixed(2);
+    document.getElementById('deduccionesLey').innerText = ley.toFixed(2);
+    document.getElementById('resumenOtrosDescuentos').innerText = otrosDesc.toFixed(2);
+    document.getElementById('netoSinExtras').innerText = (bNorm - (bNorm*0.11) - otrosDesc).toFixed(2);
+    document.getElementById('neto').innerText = (bTotal - ley - otrosDesc).toFixed(2);
 
-window.dashboardMensual = function(){
-let normales=0, extras=0;
-let otrosDescuentos = parseFloat(document.getElementById('inputOtrosDescuentos').value) || 0;
-datosUsuario.forEach(d=>{ normales+=d.normales; extras+=d.extras; });
+    if(grafica) grafica.destroy();
+    grafica = new Chart(document.getElementById('graficaMes'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Normales', 'Extras'],
+            datasets: [{ data: [norm, ext], backgroundColor: ['#2563eb', '#fbbf24'] }]
+        }
+    });
+};
 
-let brutoNormales=normales*pagoHora;
-let brutoExtras=extras*pagoHora;
-let brutoTotal=brutoNormales+brutoExtras;
-
-let ssTotal=brutoTotal*0.0975;
-let seTotal=brutoTotal*0.0125;
-let totalDeduccionesLey = ssTotal + seTotal;
-
-let ssNormales = brutoNormales * 0.0975;
-let seNormales = brutoNormales * 0.0125;
-let netoSinExtras = brutoNormales - ssNormales - seNormales - otrosDescuentos;
-let netoConExtras = brutoTotal - totalDeduccionesLey - otrosDescuentos;
-
-mesNormales.innerText=normales.toFixed(2);
-mesExtras.innerText=extras.toFixed(2);
-mesTotal.innerText="$"+brutoTotal.toFixed(2);
-totalNormales.innerText=normales.toFixed(2);
-totalExtras.innerText=extras.toFixed(2);
-
-document.getElementById("brutoNormales").innerText=brutoNormales.toFixed(2);
-document.getElementById("brutoExtras").innerText=brutoExtras.toFixed(2);
-document.getElementById("bruto").innerText=brutoTotal.toFixed(2);
-document.getElementById("deduccionesLey").innerText=totalDeduccionesLey.toFixed(2);
-document.getElementById("resumenOtrosDescuentos").innerText=otrosDescuentos.toFixed(2);
-document.getElementById("netoSinExtras").innerText=netoSinExtras.toFixed(2);
-document.getElementById("neto").innerText=netoConExtras.toFixed(2);
-
-if(grafica)grafica.destroy();
-let ctx=document.getElementById("graficaMes").getContext("2d");
-grafica=new Chart(ctx,{
-type:"bar",
-data:{
-labels:["Normales","Extras"],
-datasets:[{ label: 'Horas', data:[normales,extras], backgroundColor: ['#2563eb', '#fbbf24'] }]
-}
-});
-}
-
-// --- LÓGICA DE GENERACIÓN DE PDF ---
-window.generarPDF = function() {
+window.generarPDF = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+    const nombreUsuario = document.getElementById('saludo').innerText.replace("Bienvenido, ", "");
     
-    // Título y Encabezado
-    doc.setFontSize(18);
-    doc.text("Reporte de Horas Laborales", 14, 20);
-    doc.setFontSize(12);
-    doc.text(`Colaborador: ${usuarioActivo.email}`, 14, 30);
-    doc.text(`Mes Correspondiente: ${mesSeleccionado}`, 14, 37);
-    doc.text(`Pago por Hora: $${pagoHora.toFixed(2)}`, 14, 44);
+    doc.setFontSize(18); doc.text("Reporte de Horas Laborales", 14, 20);
+    doc.setFontSize(12); doc.text(`Colaborador: ${nombreUsuario}`, 14, 30);
+    doc.text(`Mes: ${mesSeleccionado} | Pago/Hora: $${pagoHora.toFixed(2)}`, 14, 38);
 
-    // Tabla de Registros Diarios
-    const filas = datosUsuario.map(d => [
-        d.fecha.split('-').reverse().join('/'),
-        d.entrada,
-        d.salidaAlm,
-        d.entradaAlm,
-        d.salida,
-        d.normales.toFixed(2),
-        d.extras.toFixed(2),
-        (d.trabajadas * pagoHora).toFixed(2)
-    ]);
+    const body = datosUsuario.map(d => [d.fecha, d.entrada, d.salida, d.normales.toFixed(2), d.extras.toFixed(2), (d.trabajadas * pagoHora).toFixed(2)]);
+    doc.autoTable({ startY: 45, head: [['Fecha', 'Entrada', 'Salida', 'Norm.', 'Ext.', 'Subt.']], body, theme: 'grid' });
 
-    doc.autoTable({
-        startY: 50,
-        head: [['Fecha', 'Ent.', 'S.Alm', 'E.Alm', 'Sal.', 'Norm.', 'Ext.', 'Subt. $']],
-        body: filas,
-        theme: 'striped',
-        headStyles: { fillColor: [37, 99, 235] }
-    });
-
-    // Resumen Final al final de la tabla
     const finalY = doc.lastAutoTable.finalY + 10;
+    doc.text(`Total Bruto: $${document.getElementById('bruto').innerText}`, 14, finalY);
+    doc.text(`Deducciones Ley: -$${document.getElementById('deduccionesLey').innerText}`, 14, finalY + 8);
+    doc.text(`Otros Descuentos: -$${document.getElementById('resumenOtrosDescuentos').innerText}`, 14, finalY + 16);
+    doc.setFontSize(14); doc.text(`NETO A RECIBIR: $${document.getElementById('neto').innerText}`, 14, finalY + 28);
     
-    doc.setFont("helvetica", "bold");
-    doc.text("Resumen Mensual:", 14, finalY);
-    doc.setFont("helvetica", "normal");
-    
-    doc.text(`Total Horas Normales: ${mesNormales.innerText}`, 14, finalY + 7);
-    doc.text(`Total Horas Extras: ${mesExtras.innerText}`, 14, finalY + 14);
-    doc.text(`Total Bruto: ${mesTotal.innerText}`, 14, finalY + 21);
-    
-    doc.setTextColor(225, 29, 72); // Color rojo para deducciones
-    doc.text(`Deducciones Ley: -$${document.getElementById("deduccionesLey").innerText}`, 14, finalY + 28);
-    doc.text(`Otros Descuentos: -$${document.getElementById("resumenOtrosDescuentos").innerText}`, 14, finalY + 35);
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    doc.text(`NETO A RECIBIR: $${document.getElementById("neto").innerText}`, 14, finalY + 45);
+    doc.save(`Reporte_${nombreUsuario}_${mesSeleccionado}.pdf`);
+};
 
-    // Guardar el archivo
-    doc.save(`Reporte_Horas_${mesSeleccionado}.pdf`);
-}
-
+window.exportarExcel = () => {
+    const excelData = datosUsuario.map(d => ({ Fecha: d.fecha, Entrada: d.entrada, Salida: d.salida, Normales: d.normales, Extras: d.extras, Total: d.trabajadas }));
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Horas");
+    XLSX.writeFile(wb, `Horas_${mesSeleccionado}.xlsx`);
+};
 </script>
 </body>
 </html>
