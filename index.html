@@ -27,7 +27,7 @@ cursor:pointer;
 transition:0.2s;
 }
 button:hover{background:#1d4ed8}
-input{padding:6px;border-radius:6px;border:1px solid #ddd;margin:5px}
+input{padding:8px;border-radius:6px;border:1px solid #ddd;margin:5px; font-size: 14px;}
 .hidden{display:none}
 .card{
 background:white;
@@ -46,6 +46,7 @@ table{
 width:100%;
 border-collapse:collapse;
 background:white;
+margin-top: 10px;
 }
 th,td{
 padding:10px;
@@ -63,6 +64,12 @@ margin:15px 0;
 border:0;
 height:1px;
 background:#eee;
+}
+.input-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
 }
 </style>
 </head>
@@ -85,9 +92,9 @@ background:#eee;
 </div>
 
 <div class="card">
-<h3>Seleccionar Mes</h3>
+<h3>Seleccionar Mes de Visualización</h3>
 <input type="month" id="selectorMes">
-<button onclick="cambiarMes()">Cambiar</button>
+<button onclick="cambiarMes()">Cambiar Mes</button>
 </div>
 
 <div class="card">
@@ -99,15 +106,19 @@ Pago por hora:
 
 <div class="card">
 <h3>Ingreso de Horas</h3>
-Entrada <input type="time" id="entrada">
-Salida Almuerzo <input type="time" id="salidaAlm">
-Entrada Almuerzo <input type="time" id="entradaAlm">
-Salida <input type="time" id="salida">
-<br><br>
-<button onclick="guardarDia()">Guardar Día</button>
+<div class="input-group">
+    <div>Fecha: <input type="date" id="fechaRegistro"></div>
+    <div>Entrada: <input type="time" id="entrada"></div>
+    <div>Salida Almuerzo: <input type="time" id="salidaAlm"></div>
+    <div>Entrada Almuerzo: <input type="time" id="entradaAlm"></div>
+    <div>Salida: <input type="time" id="salida"></div>
+</div>
+<br>
+<button onclick="guardarDia()" style="background: #10b981;">Guardar Registro</button>
+<button onclick="cancelarEdicion()" id="btnCancelar" class="hidden" style="background: #64748b;">Cancelar</button>
 </div>
 
-<div class="card">
+<div class="card" style="overflow-x:auto;">
 <table>
 <thead>
 <tr>
@@ -125,11 +136,11 @@ Salida <input type="time" id="salida">
 <div class="dashboard">
 <div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
 <div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
-<div class="card"><p>Total Mes</p><h3 id="mesTotal">$0.00</h3></div>
+<div class="card"><p>Total Bruto Mes</p><h3 id="mesTotal">$0.00</h3></div>
 </div>
 
 <div class="card">
-<h3>Resumen General del Mes</h3>
+<h3>Resumen General Detallado</h3>
 
 <p>Total Horas Normales: <span id="totalNormales">0.00</span></p>
 <p>Total Horas Extras: <span id="totalExtras">0.00</span></p>
@@ -142,11 +153,12 @@ Salida <input type="time" id="salida">
 
 <hr>
 
+<p>Total Neto Estimado (SS 9.75% + SE 1.25%):</p>
 <p>Total Neto SIN Extras: $<span id="netoSinExtras">0.00</span></p>
 <p><strong>Total Neto CON Extras: $<span id="neto">0.00</span></strong></p>
 </div>
 
-<canvas id="graficaMes"></canvas>
+<canvas id="graficaMes" style="max-height: 400px;"></canvas>
 
 </div>
 
@@ -176,6 +188,8 @@ let mesSeleccionado=new Date().toISOString().slice(0,7);
 let grafica;
 let editandoId=null;
 
+// Inicializar fecha de hoy en el registro
+document.getElementById('fechaRegistro').value = new Date().toISOString().split('T')[0];
 selectorMes.value=mesSeleccionado;
 
 onAuthStateChanged(auth, async user=>{
@@ -231,35 +245,31 @@ inputPagoHora.value=pagoHora;
 }
 
 window.guardarDia=async()=>{
-
+let fechaVal = fechaRegistro.value;
 let entradaVal=entrada.value;
 let salidaAlmVal=salidaAlm.value;
 let entradaAlmVal=entradaAlm.value;
 let salidaVal=salida.value;
 
-if(!entradaVal||!salidaVal||!salidaAlmVal||!entradaAlmVal)
-return alert("Complete todas las horas");
+if(!fechaVal || !entradaVal || !salidaVal || !salidaAlmVal || !entradaAlmVal)
+return alert("Complete la fecha y todas las horas");
 
+// Cálculos de horas
 let inicio=new Date(`2024-01-01T${entradaVal}`);
 let fin=new Date(`2024-01-01T${salidaVal}`);
 let alm1=new Date(`2024-01-01T${salidaAlmVal}`);
 let alm2=new Date(`2024-01-01T${entradaAlmVal}`);
 
+if (fin < inicio) fin.setDate(fin.getDate() + 1); // Turnos nocturnos básicos
+
 let trabajadas=(fin-inicio-(alm2-alm1))/3600000;
+if(trabajadas < 0) return alert("Error en el cálculo: Revise las horas de almuerzo.");
+
 let normales=Math.min(trabajadas,8);
 let extras=trabajadas>8?trabajadas-8:0;
 
-let fecha;
-
-if(editandoId){
-let registroOriginal = datosUsuario.find(d => d.id === editandoId);
-fecha = registroOriginal.fecha;
-}else{
-fecha = new Date().toLocaleDateString('es-ES');
-}
-
 let data={
-fecha,
+fecha: fechaVal,
 entrada:entradaVal,
 salidaAlm:salidaAlmVal,
 entradaAlm:entradaAlmVal,
@@ -269,15 +279,29 @@ normales,
 extras
 };
 
-if(editandoId){
-await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
-editandoId=null;
-}else{
-await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
+try {
+    if(editandoId){
+    await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
+    editandoId=null;
+    btnCancelar.classList.add("hidden");
+    }else{
+    await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
+    }
+
+    // Resetear campos
+    entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
+    fechaRegistro.value = new Date().toISOString().split('T')[0];
+    await cargarDatos();
+} catch (e) {
+    alert("Error al guardar: " + e.message);
+}
 }
 
-entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
-await cargarDatos();
+window.cancelarEdicion = () => {
+    editandoId = null;
+    entrada.value="";salidaAlm.value="";entradaAlm.value="";salida.value="";
+    fechaRegistro.value = new Date().toISOString().split('T')[0];
+    btnCancelar.classList.add("hidden");
 }
 
 async function cargarDatos(){
@@ -290,16 +314,22 @@ querySnapshot.forEach(docSnap=>{
 datosUsuario.push({id:docSnap.id,...docSnap.data()});
 });
 
+// Ordenar datos por fecha
+datosUsuario.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
 datosUsuario.forEach(d=>{
+// Formatear fecha para mostrar
+let fechaFormat = d.fecha.split('-').reverse().join('/');
+
 tablaBody.innerHTML+=`
 <tr>
-<td>${d.fecha}</td>
+<td>${fechaFormat}</td>
 <td>${d.trabajadas.toFixed(2)}</td>
 <td>${d.normales.toFixed(2)}</td>
 <td>${d.extras.toFixed(2)}</td>
 <td>
-<button onclick="editarDia('${d.id}')">✏</button>
-<button onclick="eliminarDia('${d.id}')">🗑</button>
+<button onclick="editarDia('${d.id}')" style="background:#f59e0b">✏</button>
+<button onclick="eliminarDia('${d.id}')" style="background:#ef4444">🗑</button>
 </td>
 </tr>`;
 });
@@ -311,10 +341,13 @@ window.editarDia=function(id){
 let registro=datosUsuario.find(d=>d.id===id);
 if(!registro)return;
 editandoId=id;
+fechaRegistro.value = registro.fecha;
 entrada.value=registro.entrada;
 salidaAlm.value=registro.salidaAlm;
 entradaAlm.value=registro.entradaAlm;
 salida.value=registro.salida;
+btnCancelar.classList.remove("hidden");
+window.scrollTo(0,0);
 }
 
 window.eliminarDia=async function(id){
@@ -324,7 +357,6 @@ await cargarDatos();
 }
 
 function dashboardMensual(){
-
 let normales=0;
 let extras=0;
 
@@ -337,6 +369,7 @@ let brutoNormales=normales*pagoHora;
 let brutoExtras=extras*pagoHora;
 let brutoTotal=brutoNormales+brutoExtras;
 
+// Deducciones Panamá (SS 9.75% + SE 1.25% = 11% total)
 let ssNormales=brutoNormales*0.0975;
 let seNormales=brutoNormales*0.0125;
 let netoSinExtras=brutoNormales-ssNormales-seNormales;
@@ -365,8 +398,16 @@ let ctx=document.getElementById("graficaMes").getContext("2d");
 grafica=new Chart(ctx,{
 type:"bar",
 data:{
-labels:["Normales","Extras"],
-datasets:[{data:[normales,extras]}]
+labels:["Horas Normales","Horas Extras"],
+datasets:[{
+    label: 'Total Horas',
+    data:[normales,extras],
+    backgroundColor: ['#2563eb', '#fbbf24']
+}]
+},
+options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true } }
 }
 });
 }
