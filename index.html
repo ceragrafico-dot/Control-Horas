@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -604,6 +603,56 @@
   .hidden { display: none !important; }
 
   /* ── ANIMATIONS ── */
+  /* ── OFFLINE BANNER ── */
+  #offlineBanner {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    background: var(--navy);
+    color: var(--white);
+    padding: 12px 22px;
+    border-radius: 40px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideUp 0.3s ease both;
+    pointer-events: none;
+  }
+
+  #offlineBanner.hidden { display: none !important; }
+
+  #offlineBanner .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f87171;
+    flex-shrink: 0;
+  }
+
+  #offlineBanner.online .dot { background: #4ade80; }
+
+  #syncBadge {
+    display: none;
+    background: var(--warn);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(14px); }
     to { opacity: 1; transform: translateY(0); }
@@ -667,6 +716,7 @@
     </div>
     <div class="topbar-right">
       <span id="saludo"></span>
+      <span id="syncBadge" title="Registros pendientes de sincronizar">⟳ <span id="syncCount">0</span> pendientes</span>
       <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
     </div>
   </div>
@@ -831,10 +881,170 @@
   </div><!-- /main-content -->
 </div><!-- /app -->
 
+<!-- OFFLINE BANNER -->
+<div id="offlineBanner" class="hidden">
+  <div class="dot"></div>
+  <span id="offlineText">Sin conexión — guardando localmente</span>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+/* ══════════════════════════════════════
+   INDEXEDDB — CAPA OFFLINE
+══════════════════════════════════════ */
+const IDB_NAME = 'horasPro';
+const IDB_VER  = 1;
+let idb = null;
+
+function abrirIDB() {
+  return new Promise((resolve, reject) => {
+    if (idb) return resolve(idb);
+    const req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      // Registros de horas por usuario+mes
+      if (!db.objectStoreNames.contains('registros')) {
+        db.createObjectStore('registros', { keyPath: 'localId' });
+      }
+      // Cola de cambios pendientes de sincronizar
+      if (!db.objectStoreNames.contains('pendientes')) {
+        db.createObjectStore('pendientes', { keyPath: 'localId', autoIncrement: true });
+      }
+      // Configuración de pago
+      if (!db.objectStoreNames.contains('config')) {
+        db.createObjectStore('config', { keyPath: 'uid' });
+      }
+    };
+    req.onsuccess = e => { idb = e.target.result; resolve(idb); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbPut(store, data) {
+  return new Promise(async (resolve, reject) => {
+    const db = await abrirIDB();
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+function idbGetAll(store) {
+  return new Promise(async (resolve, reject) => {
+    const db = await abrirIDB();
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+function idbGet(store, key) {
+  return new Promise(async (resolve, reject) => {
+    const db = await abrirIDB();
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+function idbDelete(store, key) {
+  return new Promise(async (resolve, reject) => {
+    const db = await abrirIDB();
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+// Llave única para registros locales: uid_mes_fecha
+function localId(uid, mes, fecha) { return `${uid}_${mes}_${fecha}`; }
+
+/* ══════════════════════════════════════
+   ESTADO DE CONEXIÓN
+══════════════════════════════════════ */
+let isOnline = navigator.onLine;
+
+function mostrarEstadoConexion(online, pendientes = 0) {
+  const banner   = document.getElementById('offlineBanner');
+  const texto    = document.getElementById('offlineText');
+  const badge    = document.getElementById('syncBadge');
+  const countEl  = document.getElementById('syncCount');
+
+  if (!online) {
+    banner.classList.remove('hidden', 'online');
+    texto.innerText = 'Sin conexión — guardando localmente';
+    banner.style.display = 'flex';
+  } else if (pendientes > 0) {
+    banner.classList.remove('hidden');
+    banner.classList.add('online');
+    texto.innerText = `Conexión restaurada — sincronizando ${pendientes} registro(s)…`;
+    banner.style.display = 'flex';
+    setTimeout(() => { banner.style.display = 'none'; }, 4000);
+  } else {
+    banner.style.display = 'none';
+  }
+
+  if (pendientes > 0) {
+    badge.style.display = 'inline-block';
+    countEl.innerText = pendientes;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+window.addEventListener('online',  async () => {
+  isOnline = true;
+  await sincronizarPendientes();
+});
+window.addEventListener('offline', () => {
+  isOnline = false;
+  mostrarEstadoConexion(false);
+});
+
+/* ══════════════════════════════════════
+   SINCRONIZACIÓN DE PENDIENTES
+══════════════════════════════════════ */
+async function sincronizarPendientes() {
+  if (!usuarioActivo) return;
+  const pendientes = await idbGetAll('pendientes');
+  if (pendientes.length === 0) { mostrarEstadoConexion(true, 0); return; }
+
+  mostrarEstadoConexion(true, pendientes.length);
+
+  for (const p of pendientes) {
+    try {
+      if (p.accion === 'add') {
+        const ref = await addDoc(
+          collection(db, 'horas', p.uid, 'meses', p.mes, 'registros'), p.data
+        );
+        // Actualizar localId con el ID real de Firebase
+        await idbDelete('registros', p.localId);
+        await idbPut('registros', { localId: `${p.uid}_${p.mes}_${p.data.fecha}`, firebaseId: ref.id, mes: p.mes, uid: p.uid, ...p.data });
+      } else if (p.accion === 'update') {
+        await updateDoc(doc(db, 'horas', p.uid, 'meses', p.mes, 'registros', p.firebaseId), p.data);
+      } else if (p.accion === 'delete') {
+        await deleteDoc(doc(db, 'horas', p.uid, 'meses', p.mes, 'registros', p.firebaseId));
+        await idbDelete('registros', p.localId);
+      } else if (p.accion === 'config') {
+        await setDoc(doc(db, 'horas', p.uid, 'configuracion', 'datos'), p.data);
+      }
+      await idbDelete('pendientes', p.localId);
+    } catch(e) {
+      console.warn('Error sincronizando:', e);
+    }
+  }
+
+  const restantes = await idbGetAll('pendientes');
+  mostrarEstadoConexion(true, restantes.length);
+  await cargarDatos();
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyA_c-ZFgW3punFLVpu1SYHYLaJAeQ4Uw7s",
@@ -859,8 +1069,13 @@ document.getElementById('selectorMes').value = mesSeleccionado;
 onAuthStateChanged(auth, async user => {
     if(user){
         usuarioActivo = user;
-        const uSnap = await getDoc(doc(db, "usuarios", user.uid));
-        const nombreDisplay = uSnap.exists() ? uSnap.data().nombre : user.email;
+        await abrirIDB(); // inicializar IDB
+
+        let nombreDisplay = user.email;
+        try {
+          const uSnap = await getDoc(doc(db, "usuarios", user.uid));
+          if (uSnap.exists()) nombreDisplay = uSnap.data().nombre;
+        } catch { /* sin conexión, mostrar email */ }
 
         document.getElementById('loginBox').style.display = 'none';
         document.getElementById('app').style.display = 'block';
@@ -868,6 +1083,14 @@ onAuthStateChanged(auth, async user => {
 
         await cargarConfiguracion();
         await cargarDatos();
+
+        // Si hay pendientes al arrancar con conexión, sincronizar
+        if (isOnline) {
+          const pendientes = await idbGetAll('pendientes');
+          if (pendientes.filter(p => p.uid === user.uid).length > 0) {
+            await sincronizarPendientes();
+          }
+        }
     } else {
         document.getElementById('loginBox').style.display = 'flex';
         document.getElementById('app').style.display = 'none';
@@ -903,16 +1126,43 @@ window.cambiarMes = async () => {
 window.guardarConfiguracion = async () => {
     pagoHora = parseFloat(document.getElementById('inputPagoHora').value) || 0;
     const desc = parseFloat(document.getElementById('inputOtrosDescuentos').value) || 0;
-    await setDoc(doc(db, "horas", usuarioActivo.uid, "configuracion", "datos"), { pagoHora, otrosDescuentos: desc });
+    const data = { pagoHora, otrosDescuentos: desc };
+
+    // Guardar siempre en IDB
+    await idbPut('config', { uid: usuarioActivo.uid, ...data });
+
+    if (isOnline) {
+      await setDoc(doc(db, "horas", usuarioActivo.uid, "configuracion", "datos"), data);
+    } else {
+      await idbPut('pendientes', { localId: `cfg_${usuarioActivo.uid}_${Date.now()}`, accion: 'config', uid: usuarioActivo.uid, data });
+      mostrarEstadoConexion(false);
+    }
     dashboardMensual();
 };
 
 async function cargarConfiguracion(){
-    const snap = await getDoc(doc(db, "horas", usuarioActivo.uid, "configuracion", "datos"));
-    if(snap.exists()){
-        pagoHora = snap.data().pagoHora;
+    // Intentar desde Firebase primero, caer a IDB si no hay conexión
+    try {
+      if (isOnline) {
+        const snap = await getDoc(doc(db, "horas", usuarioActivo.uid, "configuracion", "datos"));
+        if(snap.exists()){
+            pagoHora = snap.data().pagoHora;
+            const cfg = { uid: usuarioActivo.uid, ...snap.data() };
+            await idbPut('config', cfg); // guardar copia local
+            document.getElementById('inputPagoHora').value = pagoHora;
+            document.getElementById('inputOtrosDescuentos').value = snap.data().otrosDescuentos || 0;
+        }
+      } else {
+        throw new Error('offline');
+      }
+    } catch {
+      // Cargar desde IDB
+      const local = await idbGet('config', usuarioActivo.uid);
+      if (local) {
+        pagoHora = local.pagoHora || 0;
         document.getElementById('inputPagoHora').value = pagoHora;
-        document.getElementById('inputOtrosDescuentos').value = snap.data().otrosDescuentos || 0;
+        document.getElementById('inputOtrosDescuentos').value = local.otrosDescuentos || 0;
+      }
     }
 }
 
@@ -929,29 +1179,66 @@ window.guardarDia = async () => {
     const trabajadas=((tSF-tE)-(tEA-tSA))/3600000;
     const normales=Math.min(trabajadas,8),extras=trabajadas>8?trabajadas-8:0;
     const data={fecha:f,entrada:ent,salidaAlm:sA,entradaAlm:eA,salida:sF,trabajadas,normales,extras};
+    const lid = localId(usuarioActivo.uid, mesSeleccionado, f);
+
     try {
+      if(isOnline) {
         if(editandoId){
-            await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
-            editandoId=null;document.getElementById('btnCancelar').classList.add("hidden");
+          await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
+          await idbPut('registros', { localId: lid, firebaseId: editandoId, mes: mesSeleccionado, uid: usuarioActivo.uid, ...data });
         } else {
-            await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
+          const ref = await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
+          await idbPut('registros', { localId: lid, firebaseId: ref.id, mes: mesSeleccionado, uid: usuarioActivo.uid, ...data });
         }
-        document.getElementById('entrada').value="";document.getElementById('salidaAlm').value="";
-        document.getElementById('entradaAlm').value="";document.getElementById('salida').value="";
-        await cargarDatos();
+      } else {
+        // Sin conexión: guardar local y encolar
+        const tempId = editandoId || `temp_${Date.now()}`;
+        await idbPut('registros', { localId: lid, firebaseId: tempId, mes: mesSeleccionado, uid: usuarioActivo.uid, pendiente: true, ...data });
+        await idbPut('pendientes', {
+          localId: `${editandoId ? 'upd' : 'add'}_${lid}_${Date.now()}`,
+          accion: editandoId ? 'update' : 'add',
+          uid: usuarioActivo.uid, mes: mesSeleccionado,
+          firebaseId: editandoId || null, data
+        });
+        mostrarEstadoConexion(false);
+      }
+
+      editandoId=null;
+      document.getElementById('btnCancelar').classList.add("hidden");
+      document.getElementById('entrada').value="";document.getElementById('salidaAlm').value="";
+      document.getElementById('entradaAlm').value="";document.getElementById('salida').value="";
+      await cargarDatos();
     } catch(e){alert(e.message);}
 };
 
 async function cargarDatos(){
-    const snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
-    datosUsuario=[];
-    snap.forEach(d=>datosUsuario.push({id:d.id,...d.data()}));
+    try {
+      if (isOnline) {
+        const snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
+        datosUsuario=[];
+        snap.forEach(d=>datosUsuario.push({id:d.id,...d.data()}));
+        // Actualizar caché local
+        for (const d of datosUsuario) {
+          await idbPut('registros', { localId: localId(usuarioActivo.uid, mesSeleccionado, d.fecha), firebaseId: d.id, mes: mesSeleccionado, uid: usuarioActivo.uid, ...d });
+        }
+      } else {
+        throw new Error('offline');
+      }
+    } catch {
+      // Cargar desde IDB filtrando por usuario y mes
+      const todos = await idbGetAll('registros');
+      datosUsuario = todos
+        .filter(r => r.uid === usuarioActivo.uid && r.mes === mesSeleccionado)
+        .map(r => ({ id: r.firebaseId, ...r }));
+    }
+
     datosUsuario.sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
     const tbody=document.getElementById('tablaBody');
     tbody.innerHTML="";
     datosUsuario.forEach(d=>{
+        const pendienteTag = d.pendiente ? '<span style="font-size:10px;color:var(--warn);margin-left:4px;" title="Pendiente de sincronizar">⟳</span>' : '';
         tbody.innerHTML+=`<tr>
-            <td>${d.fecha.split('-').reverse().join('/')}</td>
+            <td>${d.fecha.split('-').reverse().join('/')}${pendienteTag}</td>
             <td><span class="badge badge-blue">${d.trabajadas.toFixed(2)}h</span></td>
             <td>${d.normales.toFixed(2)}</td>
             <td>${d.extras>0?`<span class="badge badge-gold">${d.extras.toFixed(2)}</span>`:'—'}</td>
@@ -961,6 +1248,12 @@ async function cargarDatos(){
             </td>
         </tr>`;
     });
+
+    // Mostrar badge de pendientes
+    const pendientes = await idbGetAll('pendientes');
+    const cuenta = pendientes.filter(p => p.uid === usuarioActivo.uid).length;
+    mostrarEstadoConexion(isOnline, cuenta);
+
     dashboardMensual();
 }
 
@@ -978,8 +1271,21 @@ window.editarDia=(id)=>{
 
 window.eliminarDia=async(id)=>{
     if(confirm("¿Confirmas que deseas borrar este registro?")){
+      const registro = datosUsuario.find(d => d.id === id);
+      const lid = localId(usuarioActivo.uid, mesSeleccionado, registro?.fecha || id);
+      if(isOnline){
         await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
-        await cargarDatos();
+        await idbDelete('registros', lid);
+      } else {
+        await idbDelete('registros', lid);
+        await idbPut('pendientes', {
+          localId: `del_${lid}_${Date.now()}`,
+          accion: 'delete', uid: usuarioActivo.uid,
+          mes: mesSeleccionado, firebaseId: id, localId_ref: lid
+        });
+        mostrarEstadoConexion(false);
+      }
+      await cargarDatos();
     }
 };
 
