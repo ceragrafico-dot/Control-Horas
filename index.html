@@ -1,121 +1,835 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Control de Horas Pro - César Ramos</title>
+<title>Control de Horas Pro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-
 <style>
-body{ font-family:'Segoe UI',sans-serif; background:#f8fafc; margin:0; padding:20px; }
-h2,h3{margin:10px 0}
-button{ background:#2563eb; color:white; padding:8px 14px; border-radius:8px; border:none; cursor:pointer; transition:0.2s; }
-button:hover{background:#1d4ed8}
-input{padding:8px; border-radius:6px; border:1px solid #ddd; margin:5px; font-size: 14px;}
-.hidden{display:none}
-.card{ background:white; border-radius:14px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,0.05); margin-bottom:20px; }
-.dashboard{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; margin:20px 0; }
-table{ width:100%; border-collapse:collapse; background:white; margin-top: 10px; }
-th,td{ padding:10px; border:1px solid #eee; text-align:center; }
-th{background:#2563eb;color:white}
-#loginBox{ max-width:400px; margin:80px auto; text-align:center; }
-hr{ margin:15px 0; border:0; height:1px; background:#eee; }
-.input-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.negativo { color: #dc2626; font-weight: bold; }
-.btn-pdf { background: #e11d48; margin-left: 5px; }
-.btn-excel { background: #16a34a; margin-left: 5px; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0b1a2e;
+    --navy-mid: #132540;
+    --navy-light: #1e3a5f;
+    --gold: #c9a84c;
+    --gold-light: #e2c47a;
+    --cream: #f5f0e8;
+    --white: #ffffff;
+    --text-main: #1a2a3a;
+    --text-muted: #6b7e93;
+    --border: #dde4ee;
+    --success: #1a8754;
+    --danger: #c0392b;
+    --warn: #d97706;
+    --card-shadow: 0 4px 24px rgba(11,26,46,0.08);
+    --radius: 12px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f0f3f8;
+    color: var(--text-main);
+    min-height: 100vh;
+  }
+
+  /* ── LOGIN ── */
+  #loginBox {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--navy);
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(201,168,76,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(30,58,95,0.8) 0%, transparent 50%);
+    padding: 20px;
+  }
+
+  .login-card {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 48px 44px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.3);
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .login-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .login-logo-icon {
+    width: 44px; height: 44px;
+    background: var(--navy);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  .login-logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--navy);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .login-logo-text span {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .login-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 6px;
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text-main);
+    background: #fafbfd;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 16px;
+  }
+
+  .field-input:focus {
+    outline: none;
+    border-color: var(--navy-light);
+    box-shadow: 0 0 0 3px rgba(30,58,95,0.1);
+    background: var(--white);
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-bottom: 10px;
+  }
+
+  .btn-primary:hover { background: var(--navy-light); }
+  .btn-primary:active { transform: scale(0.99); }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: var(--navy);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover { border-color: var(--navy); background: #f5f7fa; }
+
+  #loginMensaje {
+    font-size: 13px;
+    color: var(--danger);
+    margin-top: 12px;
+    text-align: center;
+    min-height: 18px;
+  }
+
+  /* ── APP SHELL ── */
+  #app { display: none; }
+  #app.visible { display: block; }
+
+  .topbar {
+    background: var(--navy);
+    color: var(--white);
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 62px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-icon {
+    width: 34px; height: 34px;
+    background: var(--gold);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .topbar-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #saludo {
+    font-size: 13px;
+    color: rgba(255,255,255,0.65);
+    font-weight: 400;
+  }
+
+  .btn-logout {
+    padding: 7px 16px;
+    background: rgba(255,255,255,0.1);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-logout:hover { background: rgba(255,255,255,0.18); }
+
+  /* ── MAIN LAYOUT ── */
+  .main-content {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+  }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .section-header h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    color: var(--navy);
+    font-weight: 600;
+  }
+
+  .section-dot {
+    width: 6px; height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 20px;
+    border: 1px solid rgba(221,228,238,0.6);
+    animation: fadeUp 0.4s ease both;
+  }
+
+  /* ── KPI STRIP ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .kpi-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(221,228,238,0.6);
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--gold);
+    border-radius: 4px 0 0 4px;
+  }
+
+  .kpi-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: var(--navy);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* ── TOOLBAR CARD ── */
+  .toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .input-styled {
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text-main);
+    background: #fafbfd;
+    transition: border-color 0.2s;
+  }
+
+  .input-styled:focus {
+    outline: none;
+    border-color: var(--navy-light);
+    box-shadow: 0 0 0 3px rgba(30,58,95,0.08);
+  }
+
+  .btn-navy {
+    padding: 9px 18px;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-navy:hover { background: var(--navy-light); }
+
+  .btn-pdf {
+    padding: 9px 18px;
+    background: #fff;
+    color: var(--danger);
+    border: 1.5px solid #fcdad7;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-pdf:hover { background: #fef2f2; border-color: var(--danger); }
+
+  .btn-excel {
+    padding: 9px 18px;
+    background: #fff;
+    color: var(--success);
+    border: 1.5px solid #c6e9d8;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-excel:hover { background: #f0fdf8; border-color: var(--success); }
+
+  .btn-success {
+    padding: 9px 18px;
+    background: var(--success);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-success:hover { background: #146944; }
+
+  .btn-cancel {
+    padding: 9px 18px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-cancel:hover { border-color: #aaa; color: var(--text-main); }
+
+  /* ── TIME INPUT GRID ── */
+  .time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .time-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .time-field input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text-main);
+    background: #fafbfd;
+    transition: border-color 0.2s;
+  }
+
+  .time-field input:focus {
+    outline: none;
+    border-color: var(--navy-light);
+    box-shadow: 0 0 0 3px rgba(30,58,95,0.08);
+    background: #fff;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--navy);
+  }
+
+  th {
+    padding: 12px 16px;
+    color: rgba(255,255,255,0.85);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    text-align: center;
+  }
+
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f3f8;
+    text-align: center;
+    color: var(--text-main);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr:hover { background: #f8fafc; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .badge-blue { background: #e8f0fe; color: #1a56db; }
+  .badge-gold { background: #fef3cd; color: #92650a; }
+
+  .action-btn {
+    width: 30px; height: 30px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action-edit { background: #fef3cd; color: #92650a; }
+  .action-edit:hover { background: #fde68a; }
+  .action-delete { background: #fee2e2; color: #dc2626; }
+  .action-delete:hover { background: #fca5a5; }
+
+  /* ── FINANCIAL SUMMARY ── */
+  .finance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .finance-block { }
+
+  .finance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid #f0f3f8;
+    font-size: 14px;
+  }
+
+  .finance-row:last-child { border-bottom: none; }
+
+  .finance-row .label { color: var(--text-muted); }
+  .finance-row .value { font-weight: 600; color: var(--text-main); }
+  .finance-row .value.deduction { color: var(--danger); }
+  .finance-row .value.positive { color: var(--success); }
+
+  .finance-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--navy);
+    border-radius: 10px;
+    margin-top: 12px;
+  }
+
+  .finance-total .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .finance-total .value {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: var(--gold-light);
+    font-weight: 700;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 12px 0;
+  }
+
+  /* ── CHART ── */
+  .chart-container {
+    position: relative;
+    max-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── HIDDEN ── */
+  .hidden { display: none !important; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 680px) {
+    .topbar { padding: 0 16px; }
+    #saludo { display: none; }
+    .kpi-strip { grid-template-columns: 1fr; }
+    .finance-grid { grid-template-columns: 1fr; }
+    .toolbar-row { flex-direction: column; align-items: stretch; }
+    .toolbar-row > * { width: 100%; }
+    .login-card { padding: 32px 24px; }
+    .main-content { padding: 16px 12px 40px; }
+  }
+
+  @media (max-width: 480px) {
+    .kpi-strip { grid-template-columns: 1fr 1fr; }
+    .kpi-strip .kpi-card:last-child { grid-column: span 2; }
+  }
 </style>
 </head>
 <body>
 
-<div id="loginBox" class="card">
-    <h2>Control de Horas Laborales</h2>
-    <input type="text" id="regNombre" placeholder="Tu Nombre"><br>
-    <input type="email" id="loginUser" placeholder="Correo electrónico"><br>
-    <input type="password" id="loginPass" placeholder="Contraseña"><br>
-    <button onclick="login()">Ingresar</button>
-    <button onclick="registrar()" style="background:#10b981">Registrar Nuevo</button>
-    <p id="loginMensaje" style="color:red"></p>
+<!-- LOGIN -->
+<div id="loginBox">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">⏱</div>
+      <div class="login-logo-text">
+        HorasPro
+        <span>Sistema de Control Laboral</span>
+      </div>
+    </div>
+    <h2 class="login-title">Bienvenido</h2>
+    <p class="login-subtitle">Ingresa tus credenciales para continuar</p>
+
+    <label class="field-label" for="regNombre">Nombre completo</label>
+    <input class="field-input" type="text" id="regNombre" placeholder="Solo para registro">
+
+    <label class="field-label" for="loginUser">Correo electrónico</label>
+    <input class="field-input" type="email" id="loginUser" placeholder="usuario@correo.com">
+
+    <label class="field-label" for="loginPass">Contraseña</label>
+    <input class="field-input" type="password" id="loginPass" placeholder="••••••••">
+
+    <button class="btn-primary" onclick="login()">Iniciar Sesión</button>
+    <button class="btn-secondary" onclick="registrar()">Crear Cuenta Nueva</button>
+    <p id="loginMensaje"></p>
+  </div>
 </div>
 
-<div id="app" class="hidden">
-    <div class="card">
-        <h2 id="saludo"></h2>
-        <button onclick="logout()" style="background:#64748b">Cerrar Sesión</button>
+<!-- APP -->
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-icon">⏱</div>
+      <span class="topbar-name">HorasPro</span>
+    </div>
+    <div class="topbar-right">
+      <span id="saludo"></span>
+      <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- KPI STRIP -->
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-label">Horas Normales</div>
+        <div class="kpi-value" id="mesNormales">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Horas Extras</div>
+        <div class="kpi-value" id="mesExtras">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Bruto</div>
+        <div class="kpi-value" id="mesTotal">$0.00</div>
+      </div>
     </div>
 
+    <!-- TOOLBAR: MES Y REPORTES -->
     <div class="card">
+      <div class="section-header">
+        <div class="section-dot"></div>
         <h3>Vista Mensual y Reportes</h3>
-        <input type="month" id="selectorMes">
-        <button onclick="cambiarMes()">Ver Mes</button>
-        <button onclick="generarPDF()" class="btn-pdf">📄 PDF</button>
-        <button onclick="exportarExcel()" class="btn-excel">📊 Excel</button>
+      </div>
+      <div class="toolbar-row">
+        <input class="input-styled" type="month" id="selectorMes">
+        <button class="btn-navy" onclick="cambiarMes()">Ver Mes</button>
+        <button class="btn-pdf" onclick="generarPDF()">📄 Exportar PDF</button>
+        <button class="btn-excel" onclick="exportarExcel()">📊 Exportar Excel</button>
+      </div>
     </div>
 
+    <!-- CONFIGURACIÓN -->
     <div class="card">
+      <div class="section-header">
+        <div class="section-dot"></div>
         <h3>Configuración de Pago y Descuentos</h3>
-        <div class="input-group">
-            <div>Pago Hora ($): <input type="number" id="inputPagoHora" step="0.01"></div>
-            <div>Otros Descuentos ($): <input type="number" id="inputOtrosDescuentos" step="0.01" value="0" oninput="dashboardMensual()"></div>
+      </div>
+      <div class="time-grid">
+        <div class="time-field">
+          <label>Pago por Hora ($)</label>
+          <input type="number" id="inputPagoHora" step="0.01" placeholder="0.00">
         </div>
-        <br>
-        <button onclick="guardarConfiguracion()">Guardar Configuración</button>
+        <div class="time-field">
+          <label>Otros Descuentos ($)</label>
+          <input type="number" id="inputOtrosDescuentos" step="0.01" value="0" oninput="dashboardMensual()">
+        </div>
+      </div>
+      <button class="btn-navy" onclick="guardarConfiguracion()">Guardar Configuración</button>
     </div>
 
+    <!-- INGRESO DE HORAS -->
     <div class="card">
+      <div class="section-header">
+        <div class="section-dot"></div>
         <h3>Ingreso de Horas</h3>
-        <div class="input-group">
-            <div>Fecha: <input type="date" id="fechaRegistro"></div>
-            <div>Entrada: <input type="time" id="entrada"></div>
-            <div>S. Almuerzo: <input type="time" id="salidaAlm"></div>
-            <div>E. Almuerzo: <input type="time" id="entradaAlm"></div>
-            <div>Salida Final: <input type="time" id="salida"></div>
+      </div>
+      <div class="time-grid">
+        <div class="time-field">
+          <label>Fecha</label>
+          <input type="date" id="fechaRegistro">
         </div>
-        <br>
-        <button onclick="guardarDia()" style="background: #10b981;">Guardar Día</button>
-        <button onclick="cancelarEdicion()" id="btnCancelar" class="hidden" style="background: #64748b;">Cancelar</button>
+        <div class="time-field">
+          <label>Hora de Entrada</label>
+          <input type="time" id="entrada">
+        </div>
+        <div class="time-field">
+          <label>Salida a Almuerzo</label>
+          <input type="time" id="salidaAlm">
+        </div>
+        <div class="time-field">
+          <label>Regreso de Almuerzo</label>
+          <input type="time" id="entradaAlm">
+        </div>
+        <div class="time-field">
+          <label>Salida Final</label>
+          <input type="time" id="salida">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn-success" onclick="guardarDia()">✓ Guardar Día</button>
+        <button class="btn-cancel hidden" id="btnCancelar" onclick="cancelarEdicion()">Cancelar Edición</button>
+      </div>
     </div>
 
-    <div class="card" style="overflow-x:auto;">
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Trabajadas</th>
-                    <th>Normales</th>
-                    <th>Extras</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="tablaBody"></tbody>
-        </table>
-    </div>
-
-    <div class="dashboard">
-        <div class="card"><p>Horas Normales</p><h3 id="mesNormales">0</h3></div>
-        <div class="card"><p>Horas Extras</p><h3 id="mesExtras">0</h3></div>
-        <div class="card"><p>Total Bruto</p><h3 id="mesTotal">$0.00</h3></div>
-    </div>
-
+    <!-- TABLA -->
     <div class="card">
-        <h3>Resumen Financiero (Panamá)</h3>
-        <p>Bruto Normales: $<span id="brutoNormales">0.00</span></p>
-        <p>Bruto Extras: $<span id="brutoExtras">0.00</span></p>
-        <p><strong>Bruto Total: $<span id="bruto">0.00</span></strong></p>
-        <hr>
-        <p>Ley (SS 9.75% + SE 1.25%): $<span id="deduccionesLey">0.00</span></p>
-        <p>Otros Descuentos: <span class="negativo">-$<span id="resumenOtrosDescuentos">0.00</span></span></p>
-        <hr>
-        <p>Neto Sin Extras: $<span id="netoSinExtras">0.00</span></p>
-        <p><strong>NETO A RECIBIR: $<span id="neto">0.00</span></strong></p>
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <h3>Registros del Mes</h3>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Trabajadas</th>
+              <th>Normales</th>
+              <th>Extras</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <canvas id="graficaMes" style="max-height: 350px;"></canvas>
-</div>
+    <!-- RESUMEN FINANCIERO + GRÁFICA -->
+    <div class="finance-grid">
+      <div class="card">
+        <div class="section-header">
+          <div class="section-dot"></div>
+          <h3>Resumen Financiero</h3>
+        </div>
+        <div class="finance-row">
+          <span class="label">Bruto Normales</span>
+          <span class="value">$<span id="brutoNormales">0.00</span></span>
+        </div>
+        <div class="finance-row">
+          <span class="label">Bruto Extras</span>
+          <span class="value">$<span id="brutoExtras">0.00</span></span>
+        </div>
+        <div class="finance-row" style="font-weight:600;">
+          <span class="label" style="color:var(--text-main);">Bruto Total</span>
+          <span class="value">$<span id="bruto">0.00</span></span>
+        </div>
+        <hr class="divider">
+        <div class="finance-row">
+          <span class="label">Ley SS 9.75% + SE 1.25%</span>
+          <span class="value deduction">-$<span id="deduccionesLey">0.00</span></span>
+        </div>
+        <div class="finance-row">
+          <span class="label">Otros Descuentos</span>
+          <span class="value deduction">-$<span id="resumenOtrosDescuentos">0.00</span></span>
+        </div>
+        <hr class="divider">
+        <div class="finance-row">
+          <span class="label">Neto sin Extras</span>
+          <span class="value positive">$<span id="netoSinExtras">0.00</span></span>
+        </div>
+        <div class="finance-total">
+          <span class="label">Neto a Recibir</span>
+          <span class="value">$<span id="neto">0.00</span></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div class="section-dot"></div>
+          <h3>Distribución de Horas</h3>
+        </div>
+        <div class="chart-container">
+          <canvas id="graficaMes"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app -->
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -147,35 +861,31 @@ onAuthStateChanged(auth, async user => {
         usuarioActivo = user;
         const uSnap = await getDoc(doc(db, "usuarios", user.uid));
         const nombreDisplay = uSnap.exists() ? uSnap.data().nombre : user.email;
-        
-        document.getElementById('loginBox').classList.add("hidden");
-        document.getElementById('app').classList.remove("hidden");
-        document.getElementById('saludo').innerText = "Bienvenido, " + nombreDisplay;
-        
+
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('saludo').innerText = nombreDisplay;
+
         await cargarConfiguracion();
         await cargarDatos();
     } else {
-        document.getElementById('loginBox').classList.remove("hidden");
-        document.getElementById('app').classList.add("hidden");
+        document.getElementById('loginBox').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
     }
 });
 
 window.login = async () => {
     const email = document.getElementById('loginUser').value;
     const pass = document.getElementById('loginPass').value;
-    try { 
-        await signInWithEmailAndPassword(auth, email, pass); 
-    }
-    catch(e) { 
-        document.getElementById('loginMensaje').innerText = "Error: Usuario o clave incorrecta"; 
-    }
+    try { await signInWithEmailAndPassword(auth, email, pass); }
+    catch(e) { document.getElementById('loginMensaje').innerText = "Usuario o contraseña incorrectos."; }
 };
 
 window.registrar = async () => {
     const nom = document.getElementById('regNombre').value;
     const email = document.getElementById('loginUser').value;
     const pass = document.getElementById('loginPass').value;
-    if(!nom || !email || !pass) return alert("Completa nombre, correo y clave");
+    if(!nom || !email || !pass) return alert("Completa nombre, correo y contraseña");
     try {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
         await setDoc(doc(db, "usuarios", cred.user.uid), { nombre: nom });
@@ -212,136 +922,142 @@ window.guardarDia = async () => {
     const sA=document.getElementById('salidaAlm').value;
     const eA=document.getElementById('entradaAlm').value;
     const sF=document.getElementById('salida').value;
-    
-    if(!f || !ent || !sA || !eA || !sF) return alert("Completa todos los campos");
-
-    const tE = new Date(`2000-01-01T${ent}`), tSA = new Date(`2000-01-01T${sA}`), 
-          tEA = new Date(`2000-01-01T${eA}`), tSF = new Date(`2000-01-01T${sF}`);
-
-    if(tSA <= tE || tEA <= tSA || tSF <= tEA) return alert("Error: Revisa el almuerzo");
-
-    const trabajadas = ((tSF - tE) - (tEA - tSA)) / 3600000;
-    const normales = Math.min(trabajadas, 8), extras = trabajadas > 8 ? trabajadas - 8 : 0;
-    const data = { fecha:f, entrada:ent, salidaAlm:sA, entradaAlm:eA, salida:sF, trabajadas, normales, extras };
-
+    if(!f||!ent||!sA||!eA||!sF) return alert("Completa todos los campos");
+    const tE=new Date(`2000-01-01T${ent}`),tSA=new Date(`2000-01-01T${sA}`),
+          tEA=new Date(`2000-01-01T${eA}`),tSF=new Date(`2000-01-01T${sF}`);
+    if(tSA<=tE||tEA<=tSA||tSF<=tEA) return alert("Error: Revisa los horarios ingresados");
+    const trabajadas=((tSF-tE)-(tEA-tSA))/3600000;
+    const normales=Math.min(trabajadas,8),extras=trabajadas>8?trabajadas-8:0;
+    const data={fecha:f,entrada:ent,salidaAlm:sA,entradaAlm:eA,salida:sF,trabajadas,normales,extras};
     try {
         if(editandoId){
-            await updateDoc(doc(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros", editandoId), data);
-            editandoId = null; document.getElementById('btnCancelar').classList.add("hidden");
+            await updateDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",editandoId),data);
+            editandoId=null;document.getElementById('btnCancelar').classList.add("hidden");
         } else {
-            await addDoc(collection(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros"), data);
+            await addDoc(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"),data);
         }
-        document.getElementById('entrada').value=""; document.getElementById('salidaAlm').value=""; 
-        document.getElementById('entradaAlm').value=""; document.getElementById('salida').value="";
+        document.getElementById('entrada').value="";document.getElementById('salidaAlm').value="";
+        document.getElementById('entradaAlm').value="";document.getElementById('salida').value="";
         await cargarDatos();
-    } catch(e) { alert(e.message); }
+    } catch(e){alert(e.message);}
 };
 
 async function cargarDatos(){
-    const snap = await getDocs(collection(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros"));
-    datosUsuario = [];
-    snap.forEach(d => datosUsuario.push({id: d.id, ...d.data()}));
-    datosUsuario.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    
-    const tbody = document.getElementById('tablaBody');
-    tbody.innerHTML = "";
-    datosUsuario.forEach(d => {
-        tbody.innerHTML += `<tr>
+    const snap=await getDocs(collection(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros"));
+    datosUsuario=[];
+    snap.forEach(d=>datosUsuario.push({id:d.id,...d.data()}));
+    datosUsuario.sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+    const tbody=document.getElementById('tablaBody');
+    tbody.innerHTML="";
+    datosUsuario.forEach(d=>{
+        tbody.innerHTML+=`<tr>
             <td>${d.fecha.split('-').reverse().join('/')}</td>
-            <td>${d.trabajadas.toFixed(2)}h</td>
+            <td><span class="badge badge-blue">${d.trabajadas.toFixed(2)}h</span></td>
             <td>${d.normales.toFixed(2)}</td>
-            <td>${d.extras.toFixed(2)}</td>
+            <td>${d.extras>0?`<span class="badge badge-gold">${d.extras.toFixed(2)}</span>`:'—'}</td>
             <td>
-                <button onclick="editarDia('${d.id}')" style="background:#f59e0b">✏</button>
-                <button onclick="eliminarDia('${d.id}')" style="background:#ef4444">🗑</button>
+                <button class="action-btn action-edit" onclick="editarDia('${d.id}')" title="Editar">✏</button>
+                <button class="action-btn action-delete" onclick="eliminarDia('${d.id}')" title="Eliminar">🗑</button>
             </td>
         </tr>`;
     });
     dashboardMensual();
 }
 
-window.editarDia = (id) => {
-    const r = datosUsuario.find(d => d.id === id);
-    editandoId = id;
-    document.getElementById('fechaRegistro').value = r.fecha; 
-    document.getElementById('entrada').value = r.entrada;
-    document.getElementById('salidaAlm').value = r.salidaAlm; 
-    document.getElementById('entradaAlm').value = r.entradaAlm;
-    document.getElementById('salida').value = r.salida; 
+window.editarDia=(id)=>{
+    const r=datosUsuario.find(d=>d.id===id);
+    editandoId=id;
+    document.getElementById('fechaRegistro').value=r.fecha;
+    document.getElementById('entrada').value=r.entrada;
+    document.getElementById('salidaAlm').value=r.salidaAlm;
+    document.getElementById('entradaAlm').value=r.entradaAlm;
+    document.getElementById('salida').value=r.salida;
     document.getElementById('btnCancelar').classList.remove("hidden");
-    window.scrollTo(0,0);
+    window.scrollTo({top:0,behavior:'smooth'});
 };
 
-window.eliminarDia = async (id) => {
-    if(confirm("¿Borrar?")) { 
-        await deleteDoc(doc(db, "horas", usuarioActivo.uid, "meses", mesSeleccionado, "registros", id)); 
-        await cargarDatos(); 
+window.eliminarDia=async(id)=>{
+    if(confirm("¿Confirmas que deseas borrar este registro?")){
+        await deleteDoc(doc(db,"horas",usuarioActivo.uid,"meses",mesSeleccionado,"registros",id));
+        await cargarDatos();
     }
 };
 
-window.cancelarEdicion = () => {
-    editandoId = null;
-    document.getElementById('entrada').value=""; document.getElementById('salidaAlm').value=""; 
-    document.getElementById('entradaAlm').value=""; document.getElementById('salida').value="";
+window.cancelarEdicion=()=>{
+    editandoId=null;
+    document.getElementById('entrada').value="";document.getElementById('salidaAlm').value="";
+    document.getElementById('entradaAlm').value="";document.getElementById('salida').value="";
     document.getElementById('btnCancelar').classList.add("hidden");
-}
+};
 
-window.dashboardMensual = function() {
-    let norm = 0, ext = 0;
-    const otrosDesc = parseFloat(document.getElementById('inputOtrosDescuentos').value) || 0;
-    datosUsuario.forEach(d => { norm += d.normales; ext += d.extras; });
-
-    const bNorm = norm * pagoHora, bExt = ext * pagoHora, bTotal = bNorm + bExt;
-    const ley = bTotal * 0.11;
-
-    document.getElementById('mesNormales').innerText = norm.toFixed(2);
-    document.getElementById('mesExtras').innerText = ext.toFixed(2);
-    document.getElementById('mesTotal').innerText = "$" + bTotal.toFixed(2);
-    document.getElementById('brutoNormales').innerText = bNorm.toFixed(2);
-    document.getElementById('brutoExtras').innerText = bExt.toFixed(2);
-    document.getElementById('bruto').innerText = bTotal.toFixed(2);
-    document.getElementById('deduccionesLey').innerText = ley.toFixed(2);
-    document.getElementById('resumenOtrosDescuentos').innerText = otrosDesc.toFixed(2);
-    document.getElementById('netoSinExtras').innerText = (bNorm - (bNorm*0.11) - otrosDesc).toFixed(2);
-    document.getElementById('neto').innerText = (bTotal - ley - otrosDesc).toFixed(2);
+window.dashboardMensual=function(){
+    let norm=0,ext=0;
+    const otrosDesc=parseFloat(document.getElementById('inputOtrosDescuentos').value)||0;
+    datosUsuario.forEach(d=>{norm+=d.normales;ext+=d.extras;});
+    const bNorm=norm*pagoHora,bExt=ext*pagoHora,bTotal=bNorm+bExt;
+    const ley=bTotal*0.11;
+    document.getElementById('mesNormales').innerText=norm.toFixed(2);
+    document.getElementById('mesExtras').innerText=ext.toFixed(2);
+    document.getElementById('mesTotal').innerText="$"+bTotal.toFixed(2);
+    document.getElementById('brutoNormales').innerText=bNorm.toFixed(2);
+    document.getElementById('brutoExtras').innerText=bExt.toFixed(2);
+    document.getElementById('bruto').innerText=bTotal.toFixed(2);
+    document.getElementById('deduccionesLey').innerText=ley.toFixed(2);
+    document.getElementById('resumenOtrosDescuentos').innerText=otrosDesc.toFixed(2);
+    document.getElementById('netoSinExtras').innerText=(bNorm-(bNorm*0.11)-otrosDesc).toFixed(2);
+    document.getElementById('neto').innerText=(bTotal-ley-otrosDesc).toFixed(2);
 
     if(grafica) grafica.destroy();
-    grafica = new Chart(document.getElementById('graficaMes'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Normales', 'Extras'],
-            datasets: [{ data: [norm, ext], backgroundColor: ['#2563eb', '#fbbf24'] }]
+    grafica=new Chart(document.getElementById('graficaMes'),{
+        type:'doughnut',
+        data:{
+            labels:['Normales','Extras'],
+            datasets:[{
+                data:[norm||0,ext||0],
+                backgroundColor:['#0b1a2e','#c9a84c'],
+                borderWidth:0,
+                hoverOffset:6
+            }]
+        },
+        options:{
+            plugins:{
+                legend:{
+                    position:'bottom',
+                    labels:{
+                        font:{family:'DM Sans',size:12},
+                        color:'#6b7e93',
+                        padding:16
+                    }
+                }
+            },
+            cutout:'68%'
         }
     });
 };
 
-window.generarPDF = () => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const nombreUsuario = document.getElementById('saludo').innerText.replace("Bienvenido, ", "");
-    
-    doc.setFontSize(18); doc.text("Reporte de Horas Laborales", 14, 20);
-    doc.setFontSize(12); doc.text(`Colaborador: ${nombreUsuario}`, 14, 30);
-    doc.text(`Mes: ${mesSeleccionado} | Pago/Hora: $${pagoHora.toFixed(2)}`, 14, 38);
-
-    const body = datosUsuario.map(d => [d.fecha, d.entrada, d.salida, d.normales.toFixed(2), d.extras.toFixed(2), (d.trabajadas * pagoHora).toFixed(2)]);
-    doc.autoTable({ startY: 45, head: [['Fecha', 'Entrada', 'Salida', 'Norm.', 'Ext.', 'Subt.']], body, theme: 'grid' });
-
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Total Bruto: $${document.getElementById('bruto').innerText}`, 14, finalY);
-    doc.text(`Deducciones Ley: -$${document.getElementById('deduccionesLey').innerText}`, 14, finalY + 8);
-    doc.text(`Otros Descuentos: -$${document.getElementById('resumenOtrosDescuentos').innerText}`, 14, finalY + 16);
-    doc.setFontSize(14); doc.text(`NETO A RECIBIR: $${document.getElementById('neto').innerText}`, 14, finalY + 28);
-    
-    doc.save(`Reporte_${nombreUsuario}_${mesSeleccionado}.pdf`);
+window.generarPDF=()=>{
+    const {jsPDF}=window.jspdf;
+    const docPdf=new jsPDF();
+    const nombreUsuario=document.getElementById('saludo').innerText;
+    docPdf.setFontSize(18);docPdf.text("Reporte de Horas Laborales",14,20);
+    docPdf.setFontSize(12);docPdf.text(`Colaborador: ${nombreUsuario}`,14,30);
+    docPdf.text(`Mes: ${mesSeleccionado} | Pago/Hora: $${pagoHora.toFixed(2)}`,14,38);
+    const body=datosUsuario.map(d=>[d.fecha,d.entrada,d.salida,d.normales.toFixed(2),d.extras.toFixed(2),(d.trabajadas*pagoHora).toFixed(2)]);
+    docPdf.autoTable({startY:45,head:[['Fecha','Entrada','Salida','Norm.','Ext.','Subt.']],body,theme:'grid'});
+    const finalY=docPdf.lastAutoTable.finalY+10;
+    docPdf.text(`Total Bruto: $${document.getElementById('bruto').innerText}`,14,finalY);
+    docPdf.text(`Deducciones Ley: -$${document.getElementById('deduccionesLey').innerText}`,14,finalY+8);
+    docPdf.text(`Otros Descuentos: -$${document.getElementById('resumenOtrosDescuentos').innerText}`,14,finalY+16);
+    docPdf.setFontSize(14);docPdf.text(`NETO A RECIBIR: $${document.getElementById('neto').innerText}`,14,finalY+28);
+    docPdf.save(`Reporte_${nombreUsuario}_${mesSeleccionado}.pdf`);
 };
 
-window.exportarExcel = () => {
-    const excelData = datosUsuario.map(d => ({ Fecha: d.fecha, Entrada: d.entrada, Salida: d.salida, Normales: d.normales, Extras: d.extras, Total: d.trabajadas }));
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Horas");
-    XLSX.writeFile(wb, `Horas_${mesSeleccionado}.xlsx`);
+window.exportarExcel=()=>{
+    const excelData=datosUsuario.map(d=>({Fecha:d.fecha,Entrada:d.entrada,Salida:d.salida,Normales:d.normales,Extras:d.extras,Total:d.trabajadas}));
+    const ws=XLSX.utils.json_to_sheet(excelData);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Horas");
+    XLSX.writeFile(wb,`Horas_${mesSeleccionado}.xlsx`);
 };
 </script>
 </body>
